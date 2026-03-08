@@ -1,0 +1,915 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Canvas Editor DevTools</title>
+    <link rel="stylesheet" href="panel.css" />
+  </head>
+  <body>
+    <div class="container">
+      <!-- 顶部状态栏 -->
+      <div class="toolbar">
+        <div class="toolbar-center">
+          <span id="connection-status" class="status disconnected">未连接</span>
+        </div>
+      </div>
+
+      <!-- 标签页导航 -->
+      <div class="tabs">
+        <button class="tab-btn active" data-tab="elements">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 3h7a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-7m0-18H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h7m0-18v18"/>
+            <path d="M8 7h.01"/><path d="M8 11h.01"/><path d="M8 15h.01"/>
+          </svg>
+          元素树
+        </button>
+        <button class="tab-btn" data-tab="events">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M4 4v16h16"/>
+            <path d="M4 14l4-4 4 4 8-8"/>
+            <circle cx="20" cy="6" r="2"/>
+          </svg>
+          事件监控
+        </button>
+        <button class="tab-btn" data-tab="config">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="3"/>
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+          </svg>
+          配置
+        </button>
+      </div>
+
+      <!-- 内容区域 -->
+      <div class="content">
+        <!-- 元素树面板 -->
+        <div id="tab-elements" class="tab-content active">
+          <div class="split-panel">
+            <div class="panel-left">
+              <div class="panel-header">
+                <span>文档结构</span>
+                <select id="element-zone">
+                  <option value="main">正文</option>
+                  <option value="header">页眉</option>
+                  <option value="footer">页脚</option>
+                </select>
+              </div>
+              <div id="element-tree" class="tree-container"></div>
+            </div>
+            <div class="panel-right">
+              <div class="panel-header">元素详情</div>
+              <div id="element-details" class="details-container">
+                <div class="empty-state">
+                  <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                    <polyline points="14 2 14 8 20 8"/>
+                    <line x1="16" y1="13" x2="8" y2="13"/>
+                    <line x1="16" y1="17" x2="8" y2="17"/>
+                    <polyline points="10 9 9 9 8 9"/>
+                  </svg>
+                  <div class="message">选择一个元素查看详情</div>
+                  <div class="hint">点击左侧树形结构中的元素</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 事件监控面板 -->
+        <div id="tab-events" class="tab-content">
+          <div class="event-controls">
+            <label
+              ><input type="checkbox" id="monitor-content" checked />
+              contentChange</label
+            >
+            <label
+              ><input type="checkbox" id="monitor-range" />
+              rangeStyleChange</label
+            >
+            <label
+              ><input type="checkbox" id="monitor-page" />
+              pageSizeChange</label
+            >
+            <label
+              ><input type="checkbox" id="monitor-control" />
+              controlChange</label
+            >
+            <label
+              ><input type="checkbox" id="monitor-mouse" />
+              mousemove</label
+            >
+            <label><input type="checkbox" id="monitor-input" /> input</label>
+            <label
+              ><input type="checkbox" id="monitor-image" />
+              imageSizeChange</label
+            >
+            <label
+              ><input type="checkbox" id="monitor-other" />
+              saved</label
+            >
+          </div>
+          <div class="event-stats">
+            <span id="event-count">事件数: 0</span>
+            <button id="btn-clear-events" class="btn small">
+              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="3 6 5 6 21 6"/>
+                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+              </svg>
+              清空
+            </button>
+          </div>
+          <div id="event-log" class="log-container"></div>
+        </div>
+
+<!-- 配置面板 -->
+        <div id="tab-config" class="tab-content">
+          <div class="config-panel">
+            <div class="config-header">
+              <div class="config-title">
+                <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="12" cy="12" r="3"/>
+                  <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+                </svg>
+                编辑器配置
+              </div>
+              <div class="config-actions">
+                <button id="btn-refresh-config" class="btn small">
+                  <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="23 4 23 10 17 10"/>
+                    <polyline points="1 20 1 14 7 14"/>
+                    <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
+                  </svg>
+                  刷新
+                </button>
+                <button id="btn-save-config" class="btn small primary">
+                  <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
+                    <polyline points="17 21 17 13 7 13 7 21"/>
+                    <polyline points="7 3 7 8 15 8"/>
+                  </svg>
+                  保存
+                </button>
+              </div>
+            </div>
+            <div class="config-content">
+              <div id="config-form" class="config-form">
+                <!-- 外观配置 -->
+                <div class="config-section">
+                  <div class="config-section-title">外观</div>
+                  <div class="config-grid">
+                    <label class="config-item">
+                      <span>默认字体</span>
+                      <input type="text" id="cfg-defaultFont" placeholder="Microsoft YaHei">
+                    </label>
+                    <label class="config-item">
+                      <span>默认字号</span>
+                      <input type="number" id="cfg-defaultSize" placeholder="16">
+                    </label>
+                    <label class="config-item">
+                      <span>默认颜色</span>
+                      <input type="color" id="cfg-defaultColor" value="#000000">
+                    </label>
+                    <label class="config-item">
+                      <span>默认类型</span>
+                      <input type="text" id="cfg-defaultType" placeholder="TEXT">
+                    </label>
+                    <label class="config-item">
+                      <span>最小字号</span>
+                      <input type="number" id="cfg-minSize" placeholder="5">
+                    </label>
+                    <label class="config-item">
+                      <span>最大字号</span>
+                      <input type="number" id="cfg-maxSize" placeholder="72">
+                    </label>
+                    <label class="config-item">
+                      <span>默认行距</span>
+                      <input type="number" id="cfg-defaultRowMargin" placeholder="1" step="0.1">
+                    </label>
+                    <label class="config-item">
+                      <span>基础行高</span>
+                      <input type="number" id="cfg-defaultBasicRowMarginHeight" placeholder="8">
+                    </label>
+                    <label class="config-item">
+                      <span>Tab宽度</span>
+                      <input type="number" id="cfg-defaultTabWidth" placeholder="32">
+                    </label>
+                    <label class="config-item">
+                      <span>页边距</span>
+                      <input type="text" id="cfg-margins" placeholder="[100,120,100,120]">
+                    </label>
+                    <label class="config-item">
+                      <span>遮罩边距</span>
+                      <input type="text" id="cfg-maskMargin" placeholder="[0,0,0,0]">
+                    </label>
+                  </div>
+                </div>
+
+                <!-- 功能配置 -->
+                <div class="config-section">
+                  <div class="config-section-title">功能</div>
+                  <div class="config-grid">
+                    <label class="config-item checkbox">
+                      <input type="checkbox" id="cfg-contextMenuDisabled">
+                      <span>禁用右键菜单</span>
+                    </label>
+                    <label class="config-item checkbox">
+                      <input type="checkbox" id="cfg-pageOuterSelectionDisabled">
+                      <span>禁用页外选区</span>
+                    </label>
+                  </div>
+                </div>
+
+                <!-- 水印配置 -->
+                <div class="config-section">
+                  <div class="config-section-title">水印</div>
+                  <div class="config-grid">
+                    <label class="config-item">
+                      <span>水印文字</span>
+                      <input type="text" id="cfg-watermark-data" placeholder="">
+                    </label>
+                    <label class="config-item">
+                      <span>水印颜色</span>
+                      <input type="color" id="cfg-watermark-color" value="#AEB5C0">
+                    </label>
+                    <label class="config-item">
+                      <span>水印字号</span>
+                      <input type="number" id="cfg-watermark-size" placeholder="200">
+                    </label>
+                    <label class="config-item">
+                      <span>透明度</span>
+                      <input type="number" id="cfg-watermark-opacity" placeholder="0.3" step="0.1" min="0" max="1">
+                    </label>
+                    <label class="config-item">
+                      <span>字体</span>
+                      <input type="text" id="cfg-watermark-font" placeholder="Microsoft YaHei">
+                    </label>
+                    <label class="config-item checkbox">
+                      <input type="checkbox" id="cfg-watermark-repeat">
+                      <span>重复水印</span>
+                    </label>
+                  </div>
+                </div>
+
+                <!-- 页码配置 -->
+                <div class="config-section">
+                  <div class="config-section-title">页码</div>
+                  <div class="config-grid">
+                    <label class="config-item">
+                      <span>页码格式</span>
+                      <input type="text" id="cfg-pageNumber-format" placeholder="{pageNo}">
+                    </label>
+                    <label class="config-item">
+                      <span>底部距离</span>
+                      <input type="number" id="cfg-pageNumber-bottom" placeholder="60">
+                    </label>
+                    <label class="config-item">
+                      <span>字号</span>
+                      <input type="number" id="cfg-pageNumber-size" placeholder="12">
+                    </label>
+                    <label class="config-item">
+                      <span>颜色</span>
+                      <input type="color" id="cfg-pageNumber-color" value="#000000">
+                    </label>
+                    <label class="config-item">
+                      <span>对齐方式</span>
+                      <select id="cfg-pageNumber-rowFlex">
+                        <option value="left">左对齐</option>
+                        <option value="center" selected>居中</option>
+                        <option value="right">右对齐</option>
+                      </select>
+                    </label>
+                    <label class="config-item checkbox">
+                      <input type="checkbox" id="cfg-pageNumber-disabled">
+                      <span>禁用页码</span>
+                    </label>
+                  </div>
+                </div>
+
+                <!-- 占位符配置 -->
+                <div class="config-section">
+                  <div class="config-section-title">占位符</div>
+                  <div class="config-grid">
+                    <label class="config-item">
+                      <span>占位符文字</span>
+                      <input type="text" id="cfg-placeholder-data" placeholder="">
+                    </label>
+                    <label class="config-item">
+                      <span>占位符颜色</span>
+                      <input type="color" id="cfg-placeholder-color" value="#C0C4CC">
+                    </label>
+                    <label class="config-item">
+                      <span>透明度</span>
+                      <input type="number" id="cfg-placeholder-opacity" placeholder="1" step="0.1" min="0" max="1">
+                    </label>
+                    <label class="config-item">
+                      <span>字号</span>
+                      <input type="number" id="cfg-placeholder-size" placeholder="16">
+                    </label>
+                    <label class="config-item">
+                      <span>字体</span>
+                      <input type="text" id="cfg-placeholder-font" placeholder="Microsoft YaHei">
+                    </label>
+                  </div>
+                </div>
+
+                <!-- 搜索高亮 -->
+                <div class="config-section">
+                  <div class="config-section-title">搜索与高亮</div>
+                  <div class="config-grid">
+                    <label class="config-item">
+                      <span>搜索匹配颜色</span>
+                      <input type="color" id="cfg-searchMatchColor" value="#FFFF00">
+                    </label>
+                    <label class="config-item">
+                      <span>搜索结果颜色</span>
+                      <input type="color" id="cfg-searchNavigateMatchColor" value="#AAD280">
+                    </label>
+                    <label class="config-item">
+                      <span>选区颜色</span>
+                      <input type="color" id="cfg-rangeColor" value="#AECBFA">
+                    </label>
+                    <label class="config-item">
+                      <span>选区透明度</span>
+                      <input type="number" id="cfg-rangeAlpha" placeholder="0.6" step="0.1" min="0" max="1">
+                    </label>
+                    <label class="config-item">
+                      <span>搜索匹配透明度</span>
+                      <input type="number" id="cfg-searchMatchAlpha" placeholder="0.6" step="0.1" min="0" max="1">
+                    </label>
+                    <label class="config-item">
+                      <span>高亮透明度</span>
+                      <input type="number" id="cfg-highlightAlpha" placeholder="0.6" step="0.1" min="0" max="1">
+                    </label>
+                  </div>
+                </div>
+
+                <!-- 表格配置 -->
+                <div class="config-section">
+                  <div class="config-section-title">表格</div>
+                  <div class="config-grid">
+                    <label class="config-item">
+                      <span>默认边框颜色</span>
+                      <input type="color" id="cfg-table-borderColor" value="#000000">
+                    </label>
+                    <label class="config-item">
+                      <span>单元格最小宽度</span>
+                      <input type="number" id="cfg-table-cellMinWidth" placeholder="40">
+                    </label>
+                    <label class="config-item">
+                      <span>单元格最小高度</span>
+                      <input type="number" id="cfg-table-cellMinHeight" placeholder="42">
+                    </label>
+                    <label class="config-item checkbox">
+                      <input type="checkbox" id="cfg-table-overflow" checked>
+                      <span>允许溢出</span>
+                    </label>
+                  </div>
+                </div>
+
+                <!-- 控件配置 -->
+                <div class="config-section">
+                  <div class="config-section-title">控件</div>
+                  <div class="config-grid">
+                    <label class="config-item">
+                      <span>前缀</span>
+                      <input type="text" id="cfg-control-prefix" placeholder="{">
+                    </label>
+                    <label class="config-item">
+                      <span>后缀</span>
+                      <input type="text" id="cfg-control-postfix" placeholder="}">
+                    </label>
+                    <label class="config-item">
+                      <span>边框颜色</span>
+                      <input type="color" id="cfg-control-borderColor" value="#000000">
+                    </label>
+                    <label class="config-item">
+                      <span>边框宽度</span>
+                      <input type="number" id="cfg-control-borderWidth" placeholder="1">
+                    </label>
+                    <label class="config-item">
+                      <span>占位符颜色</span>
+                      <input type="color" id="cfg-control-placeholderColor" value="#9c9b9b">
+                    </label>
+                    <label class="config-item">
+                      <span>括号颜色</span>
+                      <input type="color" id="cfg-control-bracketColor" value="#000000">
+                    </label>
+                    <label class="config-item">
+                      <span>激活背景色</span>
+                      <input type="color" id="cfg-control-activeBackgroundColor">
+                    </label>
+                    <label class="config-item">
+                      <span>禁用背景色</span>
+                      <input type="color" id="cfg-control-disabledBackgroundColor">
+                    </label>
+                    <label class="config-item">
+                      <span>有值背景色</span>
+                      <input type="color" id="cfg-control-existValueBackgroundColor">
+                    </label>
+                    <label class="config-item">
+                      <span>无值背景色</span>
+                      <input type="color" id="cfg-control-noValueBackgroundColor">
+                    </label>
+                  </div>
+                </div>
+
+                <!-- 光标配置 -->
+                <div class="config-section">
+                  <div class="config-section-title">光标</div>
+                  <div class="config-grid">
+                    <label class="config-item">
+                      <span>光标颜色</span>
+                      <input type="color" id="cfg-cursor-color" value="#000000">
+                    </label>
+                    <label class="config-item">
+                      <span>光标宽度</span>
+                      <input type="number" id="cfg-cursor-width" placeholder="1">
+                    </label>
+                    <label class="config-item">
+                      <span>拖拽宽度</span>
+                      <input type="number" id="cfg-cursor-dragWidth" placeholder="2">
+                    </label>
+                    <label class="config-item">
+                      <span>拖拽颜色</span>
+                      <input type="color" id="cfg-cursor-dragColor" value="#0000FF">
+                    </label>
+                    <label class="config-item checkbox">
+                      <input type="checkbox" id="cfg-cursor-dragFloatImageDisabled">
+                      <span>禁用拖拽浮动图片</span>
+                    </label>
+                  </div>
+                </div>
+
+                <!-- 标题配置 -->
+                <div class="config-section">
+                  <div class="config-section-title">标题</div>
+                  <div class="config-grid">
+                    <label class="config-item">
+                      <span>一级标题字号</span>
+                      <input type="number" id="cfg-title-level1" placeholder="26">
+                    </label>
+                    <label class="config-item">
+                      <span>二级标题字号</span>
+                      <input type="number" id="cfg-title-level2" placeholder="24">
+                    </label>
+                    <label class="config-item">
+                      <span>三级标题字号</span>
+                      <input type="number" id="cfg-title-level3" placeholder="22">
+                    </label>
+                    <label class="config-item">
+                      <span>四级标题字号</span>
+                      <input type="number" id="cfg-title-level4" placeholder="20">
+                    </label>
+                    <label class="config-item">
+                      <span>五级标题字号</span>
+                      <input type="number" id="cfg-title-level5" placeholder="18">
+                    </label>
+                    <label class="config-item">
+                      <span>六级标题字号</span>
+                      <input type="number" id="cfg-title-level6" placeholder="16">
+                    </label>
+                  </div>
+                </div>
+
+                <!-- 页眉页脚 -->
+                <div class="config-section">
+                  <div class="config-section-title">页眉页脚</div>
+                  <div class="config-grid">
+                    <label class="config-item">
+                      <span>页眉高度</span>
+                      <input type="number" id="cfg-header-maxHeight" placeholder="60">
+                    </label>
+                    <label class="config-item checkbox">
+                      <input type="checkbox" id="cfg-header-disabled">
+                      <span>禁用页眉</span>
+                    </label>
+                    <label class="config-item">
+                      <span>页脚高度</span>
+                      <input type="number" id="cfg-footer-maxHeight" placeholder="60">
+                    </label>
+                    <label class="config-item checkbox">
+                      <input type="checkbox" id="cfg-footer-disabled">
+                      <span>禁用页脚</span>
+                    </label>
+                  </div>
+                </div>
+
+                <!-- 线条与分隔 -->
+                <div class="config-section">
+                  <div class="config-section-title">线条与分隔</div>
+                  <div class="config-grid">
+                    <label class="config-item">
+                      <span>下划线颜色</span>
+                      <input type="color" id="cfg-underlineColor" value="#000000">
+                    </label>
+                    <label class="config-item">
+                      <span>删除线颜色</span>
+                      <input type="color" id="cfg-strikeoutColor" value="#FF0000">
+                    </label>
+                    <label class="config-item">
+                      <span>分隔线颜色</span>
+                      <input type="color" id="cfg-separator-color" value="#000000">
+                    </label>
+                    <label class="config-item">
+                      <span>分页符颜色</span>
+                      <input type="color" id="cfg-pageBreak-color" value="#000000">
+                    </label>
+                  </div>
+                </div>
+
+                <!-- 区域配置 -->
+                <div class="config-section">
+                  <div class="config-section-title">区域</div>
+                  <div class="config-grid">
+                    <label class="config-item checkbox">
+                      <input type="checkbox" id="cfg-zone-tipDisabled" checked>
+                      <span>禁用区域提示</span>
+                    </label>
+                  </div>
+                </div>
+
+                <!-- 复选框配置 -->
+                <div class="config-section">
+                  <div class="config-section-title">复选框</div>
+                  <div class="config-grid">
+                    <label class="config-item">
+                      <span>宽度</span>
+                      <input type="number" id="cfg-checkbox-width" placeholder="14">
+                    </label>
+                    <label class="config-item">
+                      <span>高度</span>
+                      <input type="number" id="cfg-checkbox-height" placeholder="14">
+                    </label>
+                    <label class="config-item">
+                      <span>间距</span>
+                      <input type="number" id="cfg-checkbox-gap" placeholder="5">
+                    </label>
+                    <label class="config-item">
+                      <span>线宽</span>
+                      <input type="number" id="cfg-checkbox-lineWidth" placeholder="1">
+                    </label>
+                    <label class="config-item">
+                      <span>填充色</span>
+                      <input type="color" id="cfg-checkbox-fillStyle" value="#ffffff">
+                    </label>
+                    <label class="config-item">
+                      <span>边框色</span>
+                      <input type="color" id="cfg-checkbox-strokeStyle" value="#000000">
+                    </label>
+                    <label class="config-item">
+                      <span>选中填充色</span>
+                      <input type="color" id="cfg-checkbox-checkFillStyle" value="#5175f4">
+                    </label>
+                    <label class="config-item">
+                      <span>选中边框色</span>
+                      <input type="color" id="cfg-checkbox-checkStrokeStyle" value="#5175f4">
+                    </label>
+                    <label class="config-item">
+                      <span>对勾颜色</span>
+                      <input type="color" id="cfg-checkbox-checkMarkColor" value="#ffffff">
+                    </label>
+                    <label class="config-item">
+                      <span>垂直对齐</span>
+                      <select id="cfg-checkbox-verticalAlign">
+                        <option value="top">顶部</option>
+                        <option value="middle">居中</option>
+                        <option value="bottom" selected>底部</option>
+                      </select>
+                    </label>
+                  </div>
+                </div>
+
+                <!-- 单选框配置 -->
+                <div class="config-section">
+                  <div class="config-section-title">单选框</div>
+                  <div class="config-grid">
+                    <label class="config-item">
+                      <span>宽度</span>
+                      <input type="number" id="cfg-radio-width" placeholder="14">
+                    </label>
+                    <label class="config-item">
+                      <span>高度</span>
+                      <input type="number" id="cfg-radio-height" placeholder="14">
+                    </label>
+                    <label class="config-item">
+                      <span>间距</span>
+                      <input type="number" id="cfg-radio-gap" placeholder="5">
+                    </label>
+                    <label class="config-item">
+                      <span>线宽</span>
+                      <input type="number" id="cfg-radio-lineWidth" placeholder="1">
+                    </label>
+                    <label class="config-item">
+                      <span>填充色</span>
+                      <input type="color" id="cfg-radio-fillStyle" value="#5175f4">
+                    </label>
+                    <label class="config-item">
+                      <span>边框色</span>
+                      <input type="color" id="cfg-radio-strokeStyle" value="#000000">
+                    </label>
+                    <label class="config-item">
+                      <span>垂直对齐</span>
+                      <select id="cfg-radio-verticalAlign">
+                        <option value="top">顶部</option>
+                        <option value="middle">居中</option>
+                        <option value="bottom" selected>底部</option>
+                      </select>
+                    </label>
+                  </div>
+                </div>
+
+                <!-- 分组配置 -->
+                <div class="config-section">
+                  <div class="config-section-title">分组</div>
+                  <div class="config-grid">
+                    <label class="config-item">
+                      <span>背景色</span>
+                      <input type="color" id="cfg-group-backgroundColor" value="#E99D00">
+                    </label>
+                    <label class="config-item">
+                      <span>透明度</span>
+                      <input type="number" id="cfg-group-opacity" placeholder="0.1" step="0.1" min="0" max="1">
+                    </label>
+                    <label class="config-item">
+                      <span>激活背景色</span>
+                      <input type="color" id="cfg-group-activeBackgroundColor" value="#E99D00">
+                    </label>
+                    <label class="config-item">
+                      <span>激活透明度</span>
+                      <input type="number" id="cfg-group-activeOpacity" placeholder="0.5" step="0.1" min="0" max="1">
+                    </label>
+                    <label class="config-item checkbox">
+                      <input type="checkbox" id="cfg-group-disabled">
+                      <span>禁用分组</span>
+                    </label>
+                    <label class="config-item checkbox">
+                      <input type="checkbox" id="cfg-group-deletable" checked>
+                      <span>可删除</span>
+                    </label>
+                  </div>
+                </div>
+
+                <!-- 分页符配置 -->
+                <div class="config-section">
+                  <div class="config-section-title">分页符</div>
+                  <div class="config-grid">
+                    <label class="config-item">
+                      <span>字体</span>
+                      <input type="text" id="cfg-pageBreak-font" placeholder="Microsoft YaHei">
+                    </label>
+                    <label class="config-item">
+                      <span>字号</span>
+                      <input type="number" id="cfg-pageBreak-fontSize" placeholder="12">
+                    </label>
+                  </div>
+                </div>
+
+                <!-- 背景配置 -->
+                <div class="config-section">
+                  <div class="config-section-title">背景</div>
+                  <div class="config-grid">
+                    <label class="config-item">
+                      <span>背景颜色</span>
+                      <input type="color" id="cfg-background-color" value="#FFFFFF">
+                    </label>
+                    <label class="config-item checkbox">
+                      <input type="checkbox" id="cfg-background-imageDisabled">
+                      <span>禁用背景图</span>
+                    </label>
+                  </div>
+                </div>
+
+                <!-- 换行符配置 -->
+                <div class="config-section">
+                  <div class="config-section-title">换行符</div>
+                  <div class="config-grid">
+                    <label class="config-item checkbox">
+                      <input type="checkbox" id="cfg-lineBreak-disabled" checked>
+                      <span>禁用换行符</span>
+                    </label>
+                    <label class="config-item">
+                      <span>颜色</span>
+                      <input type="color" id="cfg-lineBreak-color" value="#CCCCCC">
+                    </label>
+                    <label class="config-item">
+                      <span>线宽</span>
+                      <input type="number" id="cfg-lineBreak-lineWidth" placeholder="1.5" step="0.1">
+                    </label>
+                  </div>
+                </div>
+
+                <!-- 空白符配置 -->
+                <div class="config-section">
+                  <div class="config-section-title">空白符</div>
+                  <div class="config-grid">
+                    <label class="config-item checkbox">
+                      <input type="checkbox" id="cfg-whiteSpace-disabled" checked>
+                      <span>禁用空白符</span>
+                    </label>
+                    <label class="config-item">
+                      <span>颜色</span>
+                      <input type="color" id="cfg-whiteSpace-color" value="#CCCCCC">
+                    </label>
+                    <label class="config-item">
+                      <span>半径</span>
+                      <input type="number" id="cfg-whiteSpace-radius" placeholder="1">
+                    </label>
+                  </div>
+                </div>
+
+                <!-- 行号配置 -->
+                <div class="config-section">
+                  <div class="config-section-title">行号</div>
+                  <div class="config-grid">
+                    <label class="config-item checkbox">
+                      <input type="checkbox" id="cfg-lineNumber-disabled" checked>
+                      <span>禁用行号</span>
+                    </label>
+                    <label class="config-item">
+                      <span>字号</span>
+                      <input type="number" id="cfg-lineNumber-size" placeholder="12">
+                    </label>
+                    <label class="config-item">
+                      <span>字体</span>
+                      <input type="text" id="cfg-lineNumber-font" placeholder="Microsoft YaHei">
+                    </label>
+                    <label class="config-item">
+                      <span>颜色</span>
+                      <input type="color" id="cfg-lineNumber-color" value="#000000">
+                    </label>
+                    <label class="config-item">
+                      <span>右边距</span>
+                      <input type="number" id="cfg-lineNumber-right" placeholder="20">
+                    </label>
+                    <label class="config-item">
+                      <span>类型</span>
+                      <select id="cfg-lineNumber-type">
+                        <option value="continuity" selected>连续</option>
+                        <option value="page">每页重置</option>
+                      </select>
+                    </label>
+                  </div>
+                </div>
+
+                <!-- 页面边框配置 -->
+                <div class="config-section">
+                  <div class="config-section-title">页面边框</div>
+                  <div class="config-grid">
+                    <label class="config-item checkbox">
+                      <input type="checkbox" id="cfg-pageBorder-disabled" checked>
+                      <span>禁用边框</span>
+                    </label>
+                    <label class="config-item">
+                      <span>颜色</span>
+                      <input type="color" id="cfg-pageBorder-color" value="#000000">
+                    </label>
+                    <label class="config-item">
+                      <span>线宽</span>
+                      <input type="number" id="cfg-pageBorder-lineWidth" placeholder="1">
+                    </label>
+                  </div>
+                </div>
+
+                <!-- 角标配置 -->
+                <div class="config-section">
+                  <div class="config-section-title">角标</div>
+                  <div class="config-grid">
+                    <label class="config-item">
+                      <span>上边距</span>
+                      <input type="number" id="cfg-badge-top" placeholder="0">
+                    </label>
+                    <label class="config-item">
+                      <span>左边距</span>
+                      <input type="number" id="cfg-badge-left" placeholder="5">
+                    </label>
+                  </div>
+                </div>
+
+                <!-- 涂鸦配置 -->
+                <div class="config-section">
+                  <div class="config-section-title">涂鸦</div>
+                  <div class="config-grid">
+                    <label class="config-item">
+                      <span>默认线条颜色</span>
+                      <input type="color" id="cfg-graffiti-defaultLineColor" value="#000000">
+                    </label>
+                    <label class="config-item">
+                      <span>默认线条宽度</span>
+                      <input type="number" id="cfg-graffiti-defaultLineWidth" placeholder="2">
+                    </label>
+                  </div>
+                </div>
+
+                <!-- 标签配置 -->
+                <div class="config-section">
+                  <div class="config-section-title">标签</div>
+                  <div class="config-grid">
+                    <label class="config-item">
+                      <span>默认颜色</span>
+                      <input type="color" id="cfg-label-defaultColor" value="#1976d2">
+                    </label>
+                    <label class="config-item">
+                      <span>默认背景色</span>
+                      <input type="color" id="cfg-label-defaultBackgroundColor" value="#e3f2fd">
+                    </label>
+                    <label class="config-item">
+                      <span>默认圆角</span>
+                      <input type="number" id="cfg-label-defaultBorderRadius" placeholder="4">
+                    </label>
+                  </div>
+                </div>
+
+                <!-- 图片题注配置 -->
+                <div class="config-section">
+                  <div class="config-section-title">图片题注</div>
+                  <div class="config-grid">
+                    <label class="config-item">
+                      <span>颜色</span>
+                      <input type="color" id="cfg-imgCaption-color" value="#666666">
+                    </label>
+                    <label class="config-item">
+                      <span>字体</span>
+                      <input type="text" id="cfg-imgCaption-font" placeholder="Microsoft YaHei">
+                    </label>
+                    <label class="config-item">
+                      <span>字号</span>
+                      <input type="number" id="cfg-imgCaption-size" placeholder="12">
+                    </label>
+                    <label class="config-item">
+                      <span>上边距</span>
+                      <input type="number" id="cfg-imgCaption-top" placeholder="5">
+                    </label>
+                  </div>
+                </div>
+
+                <!-- 列表配置 -->
+                <div class="config-section">
+                  <div class="config-section-title">列表</div>
+                  <div class="config-grid">
+                    <label class="config-item checkbox">
+                      <input type="checkbox" id="cfg-list-inheritStyle">
+                      <span>继承样式（默认关闭）</span>
+                    </label>
+                  </div>
+                </div>
+
+                <!-- 其他配置 -->
+                <div class="config-section">
+                  <div class="config-section-title">其他</div>
+                  <div class="config-grid">
+                    <label class="config-item">
+                      <span>调整器颜色</span>
+                      <input type="color" id="cfg-resizerColor" value="#4182D9">
+                    </label>
+                    <label class="config-item">
+                      <span>调整器大小</span>
+                      <input type="number" id="cfg-resizerSize" placeholder="5">
+                    </label>
+                    <label class="config-item">
+                      <span>超链接颜色</span>
+                      <input type="color" id="cfg-defaultHyperlinkColor" value="#0000FF">
+                    </label>
+                    <label class="config-item">
+                      <span>非激活透明度</span>
+                      <input type="number" id="cfg-inactiveAlpha" placeholder="0.6" step="0.1" min="0" max="1">
+                    </label>
+                    <label class="config-item">
+                      <span>边距指示器颜色</span>
+                      <input type="color" id="cfg-marginIndicatorColor" value="#BABABA">
+                    </label>
+                    <label class="config-item">
+                      <span>边距指示器大小</span>
+                      <input type="number" id="cfg-marginIndicatorSize" placeholder="35">
+                    </label>
+                    <label class="config-item">
+                      <span>选区最小宽度</span>
+                      <input type="number" id="cfg-rangeMinWidth" placeholder="5">
+                    </label>
+                    <label class="config-item">
+                      <span>历史记录数</span>
+                      <input type="number" id="cfg-historyMaxRecordCount" placeholder="100">
+                    </label>
+                    <label class="config-item">
+                      <span>单词断行</span>
+                      <select id="cfg-wordBreak">
+                        <option value="break-all">break-all</option>
+                        <option value="break-word" selected>break-word</option>
+                      </select>
+                    </label>
+                    <label class="config-item">
+                      <span>打印像素比</span>
+                      <input type="number" id="cfg-printPixelRatio" placeholder="3" step="0.5">
+                    </label>
+                  </div>
+                </div>
+              </div>
+              <div id="config-error" class="config-error"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script src="panel.js"></script>
+  </body>
+</html>
