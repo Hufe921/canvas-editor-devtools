@@ -1,75 +1,64 @@
 # Canvas Editor DevTools
 
-Chrome DevTools 扩展，用于调试 [Canvas Editor](https://github.com/Hufe921/canvas-editor)。
+[![中文](https://img.shields.io/badge/中文-README-blue)](README.zh-CN.md)
 
-## 功能特性
+Chrome DevTools extension for debugging [Canvas Editor](https://github.com/Hufe921/canvas-editor).
 
-### 1. 元素树检查器
-- 实时查看 Canvas Editor 的文档结构
-- 支持主内容区、页眉、页脚分区查看
-- 点击元素查看详细信息（样式、属性等）
+## Features
 
-### 2. 事件监控器
-- 实时监控 Canvas Editor 事件
-- 支持的事件类型：
-  - 内容变化（contentChange）
-  - 选区样式变化（rangeStyleChange）
-  - 页面相关事件（visiblePageNoListChange, pageSizeChange 等）
-  - 控件事件（controlChange, controlContentChange）
-  - 图片事件（imageSizeChange, imageMousedown 等）
-  - 鼠标事件（mousemove, click 等）
-- 按类别筛选显示
-- 事件日志自动滚动
+### 1. Element Tree Inspector
+- Real-time view of Canvas Editor document structure
+- Support for main content, header, and footer zones
+- Click elements to view detailed information (styles, attributes)
 
-### 3. 配置面板
-- 查看和修改 Canvas Editor 配置选项
-- 支持配置项：
-  - 外观设置（字体、颜色、边距等）
-  - 水印设置
-  - 页码设置
-  - 表格默认样式
-  - 控件样式
-  - 光标设置
-  - 复选框/单选框样式
+### 2. Event Monitor
+- Real-time monitoring of Canvas Editor events
+- Supported event types:
+  - Content changes (contentChange)
+  - Range style changes (rangeStyleChange)
+  - Page-related events (visiblePageNoListChange, pageSizeChange, etc.)
+  - Control events (controlChange, controlContentChange)
+  - Image events (imageSizeChange, imageMousedown, etc.)
+  - Mouse events (mousemove, click, etc.)
+- Filter by category
+- Auto-scrolling event log
 
-## 安装方法
+### 3. Configuration Panel
+- View and modify Canvas Editor configuration options
+- Supported configurations:
+  - Appearance settings (font, color, margins)
+  - Watermark settings
+  - Page number settings
+  - Table default styles
+  - Control styles
+  - Cursor settings
+  - Checkbox/Radio styles
 
-### 开发模式安装
+## Installation
 
-1. 打开 Chrome 浏览器，访问 `chrome://extensions/`
-2. 开启右上角的「开发者模式」
-3. 点击「加载已解压的扩展程序」
-4. 选择本项目文件夹
+### Developer Mode
 
-## 使用方法
+1. Open Chrome browser and visit `chrome://extensions/`
+2. Enable "Developer mode" in the top right
+3. Click "Load unpacked"
+4. Select this project folder
 
-1. 打开使用 Canvas Editor 的网页
-2. 确保页面已加载 Canvas Editor 实例（`window.__CANVAS_EDITOR_INSTANCE__`）
-3. 按 F12 打开开发者工具
-4. 找到「Canvas Editor」标签页
-5. 开始使用：
-   - 元素面板：查看文档结构，点击元素查看详情
-   - 事件面板：开启需要监控的事件开关，查看实时事件
-   - 配置面板：修改配置后点击保存
+## Usage
 
-## 技术架构
+1. Open a webpage using Canvas Editor
+2. Ensure the page has loaded the Canvas Editor instance (`window.__CANVAS_EDITOR_INSTANCE__`)
+3. Press F12 to open Developer Tools
+4. Find the "Canvas Editor" tab
+5. Start using:
+   - Elements panel: View document structure, click elements for details
+   - Events panel: Enable event switches to monitor real-time events
+   - Config panel: Modify configurations and save
 
-### 文件结构
+## Development
 
-```
-canvas-editor-devtools/
-├── manifest.json          # 扩展配置
-├── background.js          # Service Worker，消息转发
-├── content-script.js      # 内容脚本，注入页面
-├── injected-script.js     # 注入脚本，与编辑器交互
-├── devtools.html          # DevTools 入口
-├── devtools.js            # DevTools 注册
-├── panel.html             # 面板 HTML
-├── panel.js               # 面板逻辑
-├── panel.css              # 面板样式
-└── README.md
-```
+1. After modifying code, click the refresh button on `chrome://extensions/` to reload
+2. Changes to injected-script.js require refreshing the target page
 
-## 许可证
+## License
 
 MIT
