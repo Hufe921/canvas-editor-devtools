@@ -1,7 +1,7 @@
 // Canvas Editor DevTools - Background Service Worker
-// 处理 DevTools 和 Content Script 之间的通信
+// Handle communication between DevTools and Content Script
 
-// 监听来自 DevTools 的连接（仅用于保持连接状态）
+// Listen for connections from DevTools (only for maintaining connection status)
 chrome.runtime.onConnect.addListener(function (port) {
   if (port.name !== 'canvas-editor-devtools') return
 
@@ -10,7 +10,7 @@ chrome.runtime.onConnect.addListener(function (port) {
   })
 })
 
-// 监听来自 content script 的消息
+// Listen for messages from content script
 chrome.runtime.onMessage.addListener(function (request, sender) {
   const tabId = sender.tab?.id
 
@@ -18,7 +18,7 @@ chrome.runtime.onMessage.addListener(function (request, sender) {
     return false
   }
 
-  // 转发给 DevTools 页面
+  // Forward to DevTools page
   try {
     chrome.runtime.sendMessage({
       type: request.type,

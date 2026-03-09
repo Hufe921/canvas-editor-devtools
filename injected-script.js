@@ -1,10 +1,10 @@
 // Canvas Editor DevTools - Injected Script
-// 直接注入到页面，与 Editor 实例交互
+// Directly inject into page, interact with Editor instance
 
 (function () {
   'use strict'
 
-  // 安全地序列化数据，移除不可克隆的对象（Promise、函数、DOM 元素等）
+  // Safely serialize data, remove non-cloneable objects (Promise, functions, DOM elements, etc.)
   function safeSerialize(obj, maxDepth = 3, currentDepth = 0) {
     if (currentDepth > maxDepth) return '[Max Depth]'
     if (obj === null || obj === undefined) return obj
@@ -15,12 +15,12 @@
     if (obj instanceof Window) return '[Window]'
     if (obj instanceof Document) return '[Document]'
 
-    // 处理数组
+    // Process array
     if (Array.isArray(obj)) {
       return obj.map(item => safeSerialize(item, maxDepth, currentDepth + 1))
     }
 
-    // 处理日期
+    // Process date
     if (obj instanceof Date) return obj.toISOString()
 
     // 处理正则
@@ -32,7 +32,7 @@
       try {
         for (const key in obj) {
           if (Object.prototype.hasOwnProperty.call(obj, key)) {
-            // 跳过以 _ 开头的私有属性
+            // Skip private properties starting with _
             if (key.startsWith('_')) continue
             try {
               const value = obj[key]
@@ -51,7 +51,7 @@
     return obj
   }
 
-  // 包装命令方法以追踪调用
+  // Wrap command methods to track calls
   function wrapCommands() {
     const editor = window.__CANVAS_EDITOR_INSTANCE__
     if (!editor || editor.__devtools_wrapped__) {
@@ -61,7 +61,7 @@
     const command = editor.command
     const originalMethods = {}
 
-    // 记录所有 execute* 和 get* 方法
+    // Record all execute* and get* methods
     Object.keys(command).forEach(key => {
       if (typeof command[key] !== 'function') return
       if (!key.startsWith('execute') && !key.startsWith('get')) return
@@ -72,14 +72,14 @@
         const startTime = performance.now()
         const type = key.startsWith('execute') ? 'command' : 'query'
 
-        // 安全序列化参数
+        // Safely serialize arguments
         const safeArgs = args.map(arg => safeSerialize(arg, 2))
 
         try {
           const result = originalMethods[key].apply(command, args)
           const duration = Math.round(performance.now() - startTime)
 
-          // 发送命令执行信息
+          // Send command execution info
           const sendCommandInfo = (res, dur, isAsync) => {
             window.postMessage(
               {
@@ -99,7 +99,7 @@
             )
           }
 
-          // 处理 Promise 结果
+          // Handle Promise result
           if (result instanceof Promise) {
             result.then(
               resolvedValue => {
@@ -148,26 +148,26 @@
       }
     })
 
-    // 标记已包装
+    // Mark as wrapped
     editor.__devtools_wrapped__ = true
   }
 
-  // 存储事件处理函数引用，用于后续移除监听
+  // Store event handler references for later removal
   const eventHandlers = new Map()
 
-  // 监听事件
+  // Listen for events
   function setupEventListeners() {
     const editor = window.__CANVAS_EDITOR_INSTANCE__
     if (!editor || !editor.eventBus || typeof editor.eventBus.on !== 'function') {
       return false
     }
 
-    // 如果已经设置过，先移除旧的监听
+    // If already set, remove old listener first
     if (eventHandlers.size > 0) {
       removeAllEventListeners()
     }
 
-    // 参考 eventbus.md 文档定义所有支持的事件
+    // Reference eventbus.md documentation to define all supported events
     const eventDefinitions = [
       'contentChange',
       'rangeStyleChange',
@@ -185,7 +185,7 @@
       'imageMousedown',
       'imageDblclick',
       'labelMousedown',
-      // 鼠标事件
+      // Mouse events
       'mousemove',
       'mouseenter',
       'mouseleave',
@@ -211,7 +211,7 @@
           '*'
         )
 
-        // contentChange 时触发数据更新
+        // Trigger data update on contentChange
         if (eventName === 'contentChange') {
           window.postMessage(
             {
@@ -223,10 +223,10 @@
         }
       }
 
-      // 存储处理函数引用
+      // Store handler reference
       eventHandlers.set(eventName, handler)
 
-      // 注册事件监听
+      // Register event listener
       try {
         editor.eventBus.on(eventName, handler)
       } catch (e) {
@@ -237,7 +237,7 @@
     return true
   }
 
-  // 移除所有事件监听
+  // Remove all event listeners
   function removeAllEventListeners() {
     const editor = window.__CANVAS_EDITOR_INSTANCE__
     if (!editor || !editor.eventBus || typeof editor.eventBus.off !== 'function') {
@@ -249,14 +249,14 @@
       try {
         editor.eventBus.off(eventName, handler)
       } catch (e) {
-        // 忽略移除错误
+        // Ignore removal error
       }
     })
 
     eventHandlers.clear()
   }
 
-  // 获取编辑器数据 - 使用正确的 API
+  // Get editor data - use correct API
   function getEditorData() {
     const editor = window.__CANVAS_EDITOR_INSTANCE__
     if (!editor) return null
@@ -264,7 +264,7 @@
     const command = editor.command
 
     try {
-      // 使用 getValue 获取完整文档数据
+      // Use getValue to get complete document data
       const value = command.getValue ? command.getValue() : null
       const options = command.getOptions ? command.getOptions() : null
       const range = command.getRange ? command.getRange() : null
@@ -277,7 +277,7 @@
         options: options,
         range: range,
         rangeContext: rangeContext,
-        // 文档数据
+        // Document data
         data: value
           ? {
               header: value.data?.header || [],
@@ -291,7 +291,7 @@
     }
   }
 
-  // 监听来自 content script 的消息
+  // Listen for messages from content script
   window.addEventListener('message', function (event) {
     if (event.source !== window) return
     if (!event.data || event.data.source !== 'canvas-editor-devtools-content')
@@ -324,18 +324,18 @@
     }
   })
 
-  // 初始化
+  // Initialize
   function init() {
-    // 立即检查一次
+    // Check immediately once
     if (window.__CANVAS_EDITOR_INSTANCE__) {
       wrapCommands()
       setupEventListeners()
       return
     }
 
-    // 等待 Editor 实例
+    // Wait for Editor instance
     let attempts = 0
-    const maxAttempts = 120 // 最多等待60秒
+    const maxAttempts = 120 // Wait at most 60 seconds
     const checkInterval = setInterval(() => {
       attempts++
       if (window.__CANVAS_EDITOR_INSTANCE__) {
@@ -343,7 +343,7 @@
         wrapCommands()
         const success = setupEventListeners()
         if (!success) {
-          // eventBus 可能还不存在，继续尝试
+          // eventBus may not exist yet, continue trying
           const eventBusInterval = setInterval(() => {
             const eventBusSuccess = setupEventListeners()
             if (eventBusSuccess) {
@@ -357,11 +357,11 @@
     }, 500)
   }
 
-  // 页面卸载时清理
+  // Clean up when page unloads
   window.addEventListener('beforeunload', () => {
     removeAllEventListeners()
   })
 
-  // 启动初始化
+  // Start initialization
   init()
 })()

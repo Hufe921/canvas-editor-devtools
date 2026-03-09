@@ -1,10 +1,10 @@
 // Canvas Editor DevTools - Content Script
-// 注入页面，桥接 DevTools 和 Editor 实例
+// Inject into page, bridge between DevTools and Editor instance
 
 (function () {
   'use strict'
 
-  // 注入脚本到页面
+  // Inject script into page
   function injectScript(src) {
     const script = document.createElement('script')
     script.src = chrome.runtime.getURL(src)
@@ -20,19 +20,19 @@
     }
   }
 
-  // 监听来自页面的消息，转发给 DevTools
+  // Listen for messages from page, forward to DevTools
   window.addEventListener('message', function (event) {
     if (event.source !== window) return
     if (!event.data || event.data.source !== 'canvas-editor-devtools-page')
       return
 
-    // 检查扩展上下文是否有效
+    // Check if extension context is valid
     if (!chrome.runtime || !chrome.runtime.sendMessage) {
       return
     }
 
     try {
-      // 转发给 background - 直接转发 type 和 payload
+      // Forward to background - directly forward type and payload
       chrome.runtime.sendMessage({
         type: event.data.type,
         payload: event.data.payload
@@ -42,13 +42,13 @@
     }
   })
 
-  // 在 DOM 准备好后注入脚本
+  // Inject script after DOM is ready
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', function () {
       injectScript('injected-script.js')
     })
   } else {
-    // DOM 已经准备好
+    // DOM is already ready
     injectScript('injected-script.js')
   }
 })()

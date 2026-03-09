@@ -1,10 +1,10 @@
-// Canvas Editor DevTools - 面板逻辑
-// 元素树、事件监控
+// Canvas Editor DevTools - Panel Logic
+// Element Tree, Event Monitor
 
 (function () {
   'use strict'
 
-  // ============ 全局状态 ============
+  // ============ Global State ============
   const state = {
     connected: false,
     editorData: null,
@@ -13,15 +13,15 @@
     selectedZone: 'main'
   }
 
-  // ============ DOM 元素缓存 ============
+  // ============ DOM Element Cache ============
   const dom = {}
 
-  // ============ 元素树缓存 ============
+  // ============ Element Tree Cache ============
   const currentElementMap = new Map()
-  const expandedElements = new Set() // 展开状态的元素 ID 集合
-  let selectedElementId = null // 当前选中的元素 ID
+  const expandedElements = new Set() // Set of expanded element IDs
+  let selectedElementId = null // Currently selected element ID
 
-  // ============ 消息防抖 ============
+  // ============ Message Debounce ============
   const messageDedupMap = new Map()
   const MESSAGE_DEDUP_MS = 100
 
@@ -32,7 +32,7 @@
       return true
     }
     messageDedupMap.set(key, now)
-    // 清理旧的记录
+    // Clean up old records
     messageDedupMap.forEach((time, k) => {
       if (now - time > MESSAGE_DEDUP_MS) {
         messageDedupMap.delete(k)
@@ -41,7 +41,7 @@
     return false
   }
 
-  // ============ 初始化 ============
+  // ============ Initialization ============
   function init() {
     cacheDOM()
     bindEvents()
@@ -49,23 +49,23 @@
     startConnectionCheck()
   }
 
-  // 连接到 background script 以接收事件消息
+  // Connect to background script to receive event messages
   function connectToBackground() {
     try {
       if (!chrome.runtime) {
         return
       }
 
-      // 使用 onMessage 监听来自 background 的消息
+      // Use onMessage to listen for messages from background
       chrome.runtime.onMessage.addListener(function (message) {
-        // 防抖去重：100ms 内相同的事件只处理一次
+        // De-duplication: only process identical events once within 100ms
         if (message.type === 'EVENT_EMITTED' && message.payload) {
           const dedupKey = `${message.payload.event}_${message.payload.timestamp || Date.now()}`
           if (isDuplicateMessage(dedupKey)) {
             return
           }
           handleEventEmitted(message.payload)
-          // contentChange 时刷新元素树数据
+          // Refresh element tree data on contentChange
           if (message.payload.event === 'contentChange') {
             refreshData()
           }
@@ -74,10 +74,10 @@
         }
       })
 
-      // 建立长连接用于注册 tabId
+      // Establish long connection for registering tabId
       const port = chrome.runtime.connect({ name: 'canvas-editor-devtools' })
 
-      // 获取当前 inspected window 的 tabId 并注册
+      // Get current inspected window's tabId and register
       const tabId = chrome.devtools.inspectedWindow.tabId
       if (tabId) {
         port.postMessage({ type: 'REGISTER_TAB', tabId: tabId })
@@ -88,19 +88,19 @@
   }
 
   function cacheDOM() {
-    // 工具栏
+    // Toolbar
     dom.connectionStatus = document.getElementById('connection-status')
 
-    // 标签页
+    // Tabs
     dom.tabBtns = document.querySelectorAll('.tab-btn')
     dom.tabContents = document.querySelectorAll('.tab-content')
 
-    // 元素面板
+    // Element Panel
     dom.elementZone = document.getElementById('element-zone')
     dom.elementTree = document.getElementById('element-tree')
     dom.elementDetails = document.getElementById('element-details')
 
-    // 事件面板
+    // Event Panel
     dom.monitorContent = document.getElementById('monitor-content')
     dom.monitorRange = document.getElementById('monitor-range')
     dom.monitorPage = document.getElementById('monitor-page')
@@ -113,7 +113,7 @@
     dom.eventCount = document.getElementById('event-count')
     dom.btnClearEvents = document.getElementById('btn-clear-events')
 
-    // 配置面板
+    // Config Panel
     dom.configForm = document.getElementById('config-form')
     dom.configError = document.getElementById('config-error')
     dom.btnRefreshConfig = document.getElementById('btn-refresh-config')
@@ -121,28 +121,28 @@
   }
 
   function bindEvents() {
-    // 标签页切换
+    // Tab switching
     dom.tabBtns.forEach(btn => {
       btn.addEventListener('click', () => switchTab(btn.dataset.tab))
     })
 
-    // 元素面板
+    // Element Panel
     dom.elementZone?.addEventListener('change', e => {
       state.selectedZone = e.target.value
       refreshElementTree()
     })
 
-    // 事件面板
+    // Event Panel
     dom.btnClearEvents?.addEventListener('click', () => {
       state.eventLog = []
       updateEventLog()
     })
 
-    // 配置面板
+    // Config Panel
     dom.btnRefreshConfig?.addEventListener('click', () => refreshConfig())
     dom.btnSaveConfig?.addEventListener('click', () => saveConfig())
 
-    // 颜色输入框事件 - 选择颜色时移除 transparent class
+    // Color input event - remove transparent class when selecting color
     document.querySelectorAll('input[type="color"]').forEach(input => {
       input.addEventListener('input', (e) => {
         if (e.target.value) {
@@ -152,10 +152,10 @@
     })
   }
 
-  // ============ 连接管理 ============
+  // ============ Connection Management ============
   function startConnectionCheck() {
     checkConnection()
-    // 只检查连接状态，不自动刷新数据
+    // Only check connection status, don't auto-refresh data
     setInterval(checkConnection, 2000)
   }
 
@@ -188,22 +188,22 @@
     state.connected = connected
 
     if (connected) {
-      dom.connectionStatus.textContent = `已连接 (${data?.version || 'unknown'})`
+      dom.connectionStatus.textContent = `Connected (${data?.version || 'unknown'})`
       dom.connectionStatus.classList.remove('disconnected')
       dom.connectionStatus.classList.add('connected')
 
-      // 只在首次连接且没有数据时刷新一次
+      // Only refresh once on first connection when no data
       if (!state.editorData) {
         refreshData()
       }
     } else {
-      dom.connectionStatus.textContent = '未连接'
+      dom.connectionStatus.textContent = 'Not Connected'
       dom.connectionStatus.classList.remove('connected')
       dom.connectionStatus.classList.add('disconnected')
     }
   }
 
-  // ============ 数据获取 ============
+  // ============ Data Fetching ============
   function refreshData() {
     if (!state.connected) return
 
@@ -301,7 +301,7 @@
     }
   }
 
-  // ============ 元素树面板 ============
+  // ============ Element Tree Panel ============
   function refreshElementTree() {
     if (!state.editorData) {
       return
@@ -319,27 +319,27 @@
             <line x1="16" y1="17" x2="8" y2="17"/>
             <polyline points="10 9 9 9 8 9"/>
           </svg>
-          <div class="message">暂无元素</div>
-          <div class="hint">当前区域没有可显示的元素</div>
+          <div class="message">No Elements</div>
+          <div class="hint">No elements to display in current area</div>
         </div>
       `
       return
     }
 
-    // 保存当前选中的元素 ID
+    // Save currently selected element ID
     const selectedItem = dom.elementTree.querySelector('.tree-item.selected')
     const savedSelectedId = selectedItem?.dataset.id || selectedElementId
 
-    // 清空并重新收集元素
+    // Clear and re-collect elements
     currentElementMap.clear()
     collectElements(elements)
 
     dom.elementTree.innerHTML = renderElementTree(elements, 0)
 
-    // 使用事件委托绑定点击事件
+    // Use event delegation to bind click events
     dom.elementTree.addEventListener('click', handleTreeItemClick)
 
-    // 恢复之前选中的元素
+    // Restore previously selected element
     if (savedSelectedId) {
       const itemToSelect = dom.elementTree.querySelector(`[data-id="${savedSelectedId}"]`)
       if (itemToSelect) {
@@ -357,7 +357,7 @@
       el._devtoolsId = id
       currentElementMap.set(id, el)
 
-      // 收集子元素
+      // Collect child elements
       let children = []
       if (el.trList) {
         el.trList.forEach(tr => {
@@ -385,17 +385,17 @@
     const element = currentElementMap.get(id)
     if (!element) return
 
-    // 判断是否有子元素
+    // Determine if has child elements
     const hasChildren = element.trList || element.control?.elementList
 
-    // 如果点击的是 toggle 图标，切换展开/折叠状态
+    // If toggle icon clicked, switch expand/collapse state
     if (e.target.closest('.toggle') && hasChildren) {
       e.stopPropagation()
       toggleElementExpand(id)
       return
     }
 
-    // 点击整个 item，选中元素并显示详情
+    // Click entire item, select element and show details
     e.stopPropagation()
     selectElement(item, element)
   }
@@ -406,7 +406,7 @@
     } else {
       expandedElements.add(id)
     }
-    // 重新渲染树以反映展开状态变化
+    // Re-render tree to reflect expand state changes
     refreshElementTree()
   }
 
@@ -421,7 +421,7 @@
             <line x1="16" y1="17" x2="8" y2="17"/>
             <polyline points="10 9 9 9 8 9"/>
           </svg>
-          <div class="message">无元素</div>
+          <div class="message">No Elements</div>
         </div>
       `
     }
@@ -430,7 +430,7 @@
       .map(el => {
         const indent = level * 16
         const icon = getElementIcon(el.type)
-        // 处理 value 和 valueList 两种情况
+        // Handle both value and valueList cases
         let displayValue = ''
         if (el.value) {
           displayValue = el.value
@@ -507,7 +507,7 @@
     })
     item.classList.add('selected')
 
-    // 保存选中的元素 ID
+    // Save selected element ID
     selectedElementId = item.dataset.id
 
     dom.elementDetails.innerHTML = renderElementDetails(element)
@@ -516,22 +516,22 @@
   function renderElementDetails(el) {
     const sections = []
 
-    // 1. 基础信息 - 所有类型都显示
-    // 处理 value 和 valueList 两种情况
+    // 1. Basic Info - shown for all types
+    // Handle both value and valueList cases
     let displayValue = el.value
     if (!displayValue && el.valueList?.length > 0) {
       displayValue = el.valueList.map(v => v.value || '').join('')
     }
     const basicRows = [
       { label: 'ID', value: el.id },
-      { label: '类型', value: el.type || 'text' },
-      { label: '值', value: displayValue },
-      { label: '外部ID', value: el.externalId },
-      { label: '隐藏', value: el.hide }
+      { label: 'Type', value: el.type || 'text' },
+      { label: 'Value', value: displayValue },
+      { label: 'External ID', value: el.externalId },
+      { label: 'Hidden', value: el.hide }
     ]
     if (el.extension !== undefined) {
       basicRows.push({
-        label: '扩展',
+        label: 'Extension',
         value:
           typeof el.extension === 'object'
             ? JSON.stringify(el.extension)
@@ -539,211 +539,211 @@
       })
     }
     sections.push({
-      title: '基础信息',
+      title: 'Basic Info',
       rows: basicRows.filter(r => r.value !== undefined)
     })
 
-    // 2. 文本样式
+    // 2. Text Style
     const styleRows = []
-    if (el.font !== undefined) styleRows.push({ label: '字体', value: el.font })
-    if (el.size !== undefined) styleRows.push({ label: '字号', value: el.size })
+    if (el.font !== undefined) styleRows.push({ label: 'Font', value: el.font })
+    if (el.size !== undefined) styleRows.push({ label: 'Font Size', value: el.size })
     if (el.width !== undefined)
-      styleRows.push({ label: '宽度', value: el.width })
+      styleRows.push({ label: 'Width', value: el.width })
     if (el.height !== undefined)
-      styleRows.push({ label: '高度', value: el.height })
-    if (el.bold !== undefined) styleRows.push({ label: '粗体', value: el.bold })
+      styleRows.push({ label: 'Height', value: el.height })
+    if (el.bold !== undefined) styleRows.push({ label: 'Bold', value: el.bold })
     if (el.color !== undefined)
-      styleRows.push({ label: '颜色', value: el.color })
+      styleRows.push({ label: 'Color', value: el.color })
     if (el.highlight !== undefined)
-      styleRows.push({ label: '高亮', value: el.highlight })
+      styleRows.push({ label: 'Highlight', value: el.highlight })
     if (el.italic !== undefined)
-      styleRows.push({ label: '斜体', value: el.italic })
+      styleRows.push({ label: 'Italic', value: el.italic })
     if (el.underline !== undefined)
-      styleRows.push({ label: '下划线', value: el.underline })
+      styleRows.push({ label: 'Underline', value: el.underline })
     if (el.strikeout !== undefined)
-      styleRows.push({ label: '删除线', value: el.strikeout })
+      styleRows.push({ label: 'Strikethrough', value: el.strikeout })
     if (el.rowFlex !== undefined)
-      styleRows.push({ label: '对齐', value: el.rowFlex })
+      styleRows.push({ label: 'Alignment', value: el.rowFlex })
     if (el.rowMargin !== undefined)
-      styleRows.push({ label: '行间距', value: el.rowMargin })
+      styleRows.push({ label: 'Line Spacing', value: el.rowMargin })
     if (el.letterSpacing !== undefined)
-      styleRows.push({ label: '字间距', value: el.letterSpacing })
+      styleRows.push({ label: 'Letter Spacing', value: el.letterSpacing })
     if (styleRows.length > 0) {
-      sections.push({ title: '文本样式', rows: styleRows })
+      sections.push({ title: 'Text Style', rows: styleRows })
     }
 
-    // 3. 表格详情
+    // 3. Table Details
     if (el.type === 'table' && el.trList) {
       const tableRows = [
-        { label: '行数', value: el.trList.length },
-        { label: '列数', value: el.colgroup?.length || 'unknown' },
-        { label: '边框类型', value: el.borderType },
-        { label: '边框颜色', value: el.borderColor },
-        { label: '边框宽度', value: el.borderWidth },
-        { label: '表格工具禁用', value: el.tableToolDisabled },
+        { label: 'Row Count', value: el.trList.length },
+        { label: 'Column Count', value: el.colgroup?.length || 'unknown' },
+        { label: 'Border Type', value: el.borderType },
+        { label: 'Border Color', value: el.borderColor },
+        { label: 'Border Width', value: el.borderWidth },
+        { label: 'Table Tool Disabled', value: el.tableToolDisabled },
         { label: 'Concept ID', value: el.conceptId }
       ].filter(r => r.value !== undefined)
-      sections.push({ title: '表格属性', rows: tableRows })
+      sections.push({ title: 'Table Properties', rows: tableRows })
     }
 
-    // 4. 超链接
+    // 4. Hyperlink
     if (el.type === 'hyperlink' || el.url !== undefined) {
       const linkRows = [{ label: 'URL', value: el.url }]
       if (el.valueList?.length > 0) {
         const linkText = el.valueList.map(v => v.value || '').join('')
-        linkRows.push({ label: '链接文本', value: linkText })
-        linkRows.push({ label: '内容元素数', value: el.valueList.length })
+        linkRows.push({ label: 'Link Text', value: linkText })
+        linkRows.push({ label: 'Content Element Count', value: el.valueList.length })
       }
       sections.push({
-        title: '超链接',
+        title: 'Hyperlink',
         rows: linkRows.filter(r => r.value !== undefined)
       })
     }
 
-    // 5. 图片详情
+    // 5. Image Details
     if (el.type === 'image') {
       const imgRows = [
-        { label: '宽度', value: el.width },
-        { label: '高度', value: el.height },
-        { label: '显示方式', value: el.imgDisplay },
-        { label: '工具禁用', value: el.imgToolDisabled },
-        { label: '预览禁用', value: el.imgPreviewDisabled }
+        { label: 'Width', value: el.width },
+        { label: 'Height', value: el.height },
+        { label: 'Display Mode', value: el.imgDisplay },
+        { label: 'Tool Disabled', value: el.imgToolDisabled },
+        { label: 'Preview Disabled', value: el.imgPreviewDisabled }
       ]
       if (el.imgFloatPosition) {
         imgRows.push({
-          label: '浮动位置',
+          label: 'Float Position',
           value: `x:${el.imgFloatPosition.x}, y:${el.imgFloatPosition.y}`
         })
         if (el.imgFloatPosition.pageNo !== undefined) {
-          imgRows.push({ label: '页码', value: el.imgFloatPosition.pageNo })
+          imgRows.push({ label: 'Page Number', value: el.imgFloatPosition.pageNo })
         }
       }
       if (el.imgCrop) {
         imgRows.push({
-          label: '裁剪',
+          label: 'Crop',
           value: `x:${el.imgCrop.x}, y:${el.imgCrop.y}, ${el.imgCrop.width}x${el.imgCrop.height}`
         })
       }
       if (el.imgCaption) {
-        imgRows.push({ label: '题注', value: el.imgCaption.value })
+        imgRows.push({ label: 'Caption', value: el.imgCaption.value })
         if (el.imgCaption.color)
-          imgRows.push({ label: '题注颜色', value: el.imgCaption.color })
+          imgRows.push({ label: 'Caption Color', value: el.imgCaption.color })
         if (el.imgCaption.font)
-          imgRows.push({ label: '题注字体', value: el.imgCaption.font })
+          imgRows.push({ label: 'Caption Font', value: el.imgCaption.font })
         if (el.imgCaption.size)
-          imgRows.push({ label: '题注字号', value: el.imgCaption.size })
+          imgRows.push({ label: 'Caption Font Size', value: el.imgCaption.size })
       }
       sections.push({
-        title: '图片属性',
+        title: 'Image Properties',
         rows: imgRows.filter(r => r.value !== undefined)
       })
     }
 
-    // 6. 控件详情
+    // 6. Control Details
     if (el.control) {
       const controlRows = [
-        { label: '类型', value: el.control.type },
-        { label: '占位符', value: el.control.placeholder },
+        { label: 'Type', value: el.control.type },
+        { label: 'Placeholder', value: el.control.placeholder },
         { label: 'Group ID', value: el.control.groupId },
         { label: 'Concept ID', value: el.control.conceptId },
-        { label: '前缀', value: el.control.prefix },
-        { label: '后缀', value: el.control.postfix },
-        { label: '前文本', value: el.control.preText },
-        { label: '后文本', value: el.control.postText },
-        { label: '最小宽度', value: el.control.minWidth },
-        { label: '下划线', value: el.control.underline },
-        { label: '边框', value: el.control.border },
-        { label: '代码', value: el.control.code },
-        { label: '最小值', value: el.control.min },
-        { label: '最大值', value: el.control.max },
-        { label: '方向', value: el.control.flexDirection },
-        { label: '日期格式', value: el.control.dateFormat },
-        { label: '多选', value: el.control.isMultiSelect },
-        { label: '多选分隔符', value: el.control.multiSelectDelimiter },
+        { label: 'Prefix', value: el.control.prefix },
+        { label: 'Suffix', value: el.control.postfix },
+        { label: 'Pre-text', value: el.control.preText },
+        { label: 'Post-text', value: el.control.postText },
+        { label: 'Minimum Width', value: el.control.minWidth },
+        { label: 'Underline', value: el.control.underline },
+        { label: 'Border', value: el.control.border },
+        { label: 'Code', value: el.control.code },
+        { label: 'Minimum Value', value: el.control.min },
+        { label: 'Maximum Value', value: el.control.max },
+        { label: 'Direction', value: el.control.flexDirection },
+        { label: 'Date Format', value: el.control.dateFormat },
+        { label: 'Multi-select', value: el.control.isMultiSelect },
+        { label: 'Multi-select Delimiter', value: el.control.multiSelectDelimiter },
         {
-          label: '删除禁用',
+          label: 'Delete Disabled',
           value: el.control.deletable === false ? true : undefined
         },
-        { label: '禁用', value: el.control.disabled },
-        { label: '粘贴禁用', value: el.control.pasteDisabled },
-        { label: '隐藏', value: el.control.hide }
+        { label: 'Disabled', value: el.control.disabled },
+        { label: 'Paste Disabled', value: el.control.pasteDisabled },
+        { label: 'Hidden', value: el.control.hide }
       ].filter(r => r.value !== undefined)
 
-      // 显示选项集详情
+      // Show option set details
       if (el.control.valueSets?.length > 0) {
         const valueSetsStr = el.control.valueSets
           .map(vs => `${vs.value}(${vs.code})`)
           .join(', ')
         controlRows.push({
-          label: `选项集(${el.control.valueSets.length})`,
+          label: `Option Set(${el.control.valueSets.length})`,
           value: valueSetsStr
         })
       }
 
-      // 显示控件值
+      // Show control value
       if (el.control.value?.length > 0) {
         const valueStr = el.control.value.map(v => v.value || '').join('')
-        controlRows.push({ label: '当前值', value: valueStr })
+        controlRows.push({ label: 'Current Value', value: valueStr })
       }
 
-      sections.push({ title: '控件属性', rows: controlRows })
+      sections.push({ title: 'Control Properties', rows: controlRows })
     }
 
-    // 7. 复选框
+    // 7. Checkbox
     if (el.type === 'checkbox' || el.checkbox) {
-      const checkboxRows = [{ label: '选中', value: el.checkbox?.value }]
-      // 如果是控件类型的复选框，显示选项
+      const checkboxRows = [{ label: 'Selected', value: el.checkbox?.value }]
+      // If it's a control-type checkbox, show options
       if (el.control?.valueSets?.length > 0) {
         const options = el.control.valueSets
           .map(vs => `${vs.value}(${vs.code})`)
           .join(', ')
-        checkboxRows.push({ label: '选项', value: options })
+        checkboxRows.push({ label: 'Options', value: options })
         if (el.control.code) {
           const selected = el.control.valueSets.find(
             vs => vs.code === el.control.code
           )
           checkboxRows.push({
-            label: '当前选项',
+            label: 'Current Option',
             value: selected ? selected.value : ''
           })
         }
       }
       sections.push({
-        title: '复选框',
+        title: 'Checkbox',
         rows: checkboxRows.filter(r => r.value !== undefined)
       })
     }
 
-    // 8. 单选框
+    // 8. Radio
     if (el.type === 'radio' || el.radio) {
-      const radioRows = [{ label: '选中', value: el.radio?.value }]
-      // 如果是控件类型的单选框，显示选项
+      const radioRows = [{ label: 'Selected', value: el.radio?.value }]
+      // If it's a control-type radio, show options
       if (el.control?.valueSets?.length > 0) {
         const options = el.control.valueSets
           .map(vs => `${vs.value}(${vs.code})`)
           .join(', ')
-        radioRows.push({ label: '选项', value: options })
+        radioRows.push({ label: 'Options', value: options })
         if (el.control.code) {
           const selected = el.control.valueSets.find(
             vs => vs.code === el.control.code
           )
           radioRows.push({
-            label: '当前选项',
+            label: 'Current Option',
             value: selected ? selected.value : ''
           })
         }
       }
       sections.push({
-        title: '单选框',
+        title: 'Radio',
         rows: radioRows.filter(r => r.value !== undefined)
       })
     }
 
     // 9. LaTeX
     if (el.type === 'latex') {
-      const latexRows = [{ label: '公式', value: el.value }]
+      const latexRows = [{ label: 'Formula', value: el.value }]
       if (el.laTexSVG) {
-        latexRows.push({ label: 'SVG', value: '已渲染' })
+        latexRows.push({ label: 'SVG', value: 'Rendered' })
       }
       sections.push({
         title: 'LaTeX',
@@ -751,116 +751,116 @@
       })
     }
 
-    // 10. 分割线
+    // 10. Separator
     if (el.type === 'separator') {
       const sepRows = []
       if (el.dashArray !== undefined)
-        sepRows.push({ label: '虚线样式', value: el.dashArray.join(', ') })
+        sepRows.push({ label: 'Dash Array', value: el.dashArray.join(', ') })
       if (el.lineWidth !== undefined)
-        sepRows.push({ label: '线宽', value: el.lineWidth })
-      if (sepRows.length > 0) sections.push({ title: '分割线', rows: sepRows })
+        sepRows.push({ label: 'Line Width', value: el.lineWidth })
+      if (sepRows.length > 0) sections.push({ title: 'Separator', rows: sepRows })
     }
 
-    // 11. 日期
+    // 11. Date
     if (el.type === 'date' || el.dateFormat !== undefined) {
       sections.push({
-        title: '日期',
-        rows: [{ label: '格式', value: el.dateFormat }]
+        title: 'Date',
+        rows: [{ label: 'Format', value: el.dateFormat }]
       })
     }
 
-    // 12. 标题
+    // 12. Title
     if (el.level !== undefined || el.title) {
-      const titleRows = [{ label: '级别', value: el.level }]
+      const titleRows = [{ label: 'Level', value: el.level }]
       if (el.valueList?.length > 0) {
         const titleText = el.valueList.map(v => v.value || '').join('')
-        titleRows.push({ label: '标题内容', value: titleText })
+        titleRows.push({ label: 'Title Content', value: titleText })
       }
       if (el.title?.conceptId)
         titleRows.push({ label: 'Concept ID', value: el.title.conceptId })
       if (el.title?.deletable !== undefined)
-        titleRows.push({ label: '可删除', value: el.title.deletable })
+        titleRows.push({ label: 'Deletable', value: el.title.deletable })
       if (el.title?.disabled !== undefined)
-        titleRows.push({ label: '禁用', value: el.title.disabled })
+        titleRows.push({ label: 'Disabled', value: el.title.disabled })
       sections.push({
-        title: '标题',
+        title: 'Title',
         rows: titleRows.filter(r => r.value !== undefined)
       })
     }
 
-    // 13. 列表
+    // 13. List
     if (el.listType !== undefined || el.type === 'list') {
       const listRows = [
-        { label: '类型', value: el.listType },
-        { label: '样式', value: el.listStyle },
-        { label: '换行', value: el.listWrap }
+        { label: 'Type', value: el.listType },
+        { label: 'Style', value: el.listStyle },
+        { label: 'Wrap', value: el.listWrap }
       ]
       if (el.valueList?.length > 0) {
         const listContent = el.valueList.map(v => v.value || '').join('\n')
-        listRows.push({ label: '列表内容', value: listContent })
+        listRows.push({ label: 'List Content', value: listContent })
       }
       sections.push({
-        title: '列表',
+        title: 'List',
         rows: listRows.filter(r => r.value !== undefined)
       })
     }
 
-    // 14. 内容块 (iframe/video)
+    // 14. Content Block (iframe/video)
     if (el.block) {
-      const blockRows = [{ label: '类型', value: el.block.type }]
+      const blockRows = [{ label: 'Type', value: el.block.type }]
       if (el.block.iframeBlock) {
         if (el.block.iframeBlock.src)
           blockRows.push({ label: 'Src', value: el.block.iframeBlock.src })
         if (el.block.iframeBlock.srcdoc)
-          blockRows.push({ label: 'Srcdoc', value: '有内容' })
+          blockRows.push({ label: 'Srcdoc', value: 'Has Content' })
       }
       if (el.block.videoBlock?.src) {
-        blockRows.push({ label: '视频地址', value: el.block.videoBlock.src })
+        blockRows.push({ label: 'Video URL', value: el.block.videoBlock.src })
       }
-      sections.push({ title: '内容块', rows: blockRows })
+      sections.push({ title: 'Content Block', rows: blockRows })
     }
 
-    // 15. 区域
+    // 15. Area
     if (el.areaId !== undefined || el.area) {
       const areaRows = [{ label: 'ID', value: el.areaId }]
       if (el.area) {
         if (el.area.top !== undefined)
-          areaRows.push({ label: '顶部', value: el.area.top })
+          areaRows.push({ label: 'Top', value: el.area.top })
         if (el.area.hide !== undefined)
-          areaRows.push({ label: '隐藏', value: el.area.hide })
+          areaRows.push({ label: 'Hidden', value: el.area.hide })
         if (el.area.borderColor)
-          areaRows.push({ label: '边框颜色', value: el.area.borderColor })
+          areaRows.push({ label: 'Border Color', value: el.area.borderColor })
         if (el.area.backgroundColor)
-          areaRows.push({ label: '背景颜色', value: el.area.backgroundColor })
-        if (el.area.mode) areaRows.push({ label: '模式', value: el.area.mode })
+          areaRows.push({ label: 'Background Color', value: el.area.backgroundColor })
+        if (el.area.mode) areaRows.push({ label: 'Mode', value: el.area.mode })
       }
       sections.push({
-        title: '区域',
+        title: 'Area',
         rows: areaRows.filter(r => r.value !== undefined)
       })
     }
 
-    // 16. 标签
+    // 16. Label
     if (el.labelId !== undefined || el.label) {
       const labelRows = [{ label: 'ID', value: el.labelId }]
       if (el.label) {
         if (el.label.color)
-          labelRows.push({ label: '颜色', value: el.label.color })
+          labelRows.push({ label: 'Color', value: el.label.color })
         if (el.label.backgroundColor)
-          labelRows.push({ label: '背景色', value: el.label.backgroundColor })
+          labelRows.push({ label: 'Background Color', value: el.label.backgroundColor })
         if (el.label.borderRadius !== undefined)
-          labelRows.push({ label: '圆角', value: el.label.borderRadius })
+          labelRows.push({ label: 'Border Radius', value: el.label.borderRadius })
       }
       sections.push({
-        title: '标签',
+        title: 'Label',
         rows: labelRows.filter(r => r.value !== undefined)
       })
     }
 
-    // 17. 分组
+    // 17. Group
     if (el.groupIds?.length > 0) {
       sections.push({
-        title: '分组',
+        title: 'Group',
         rows: [{ label: 'Group IDs', value: el.groupIds.join(', ') }]
       })
     }
@@ -900,10 +900,10 @@
     return String(value)
   }
 
-  // ============ 配置面板 ============
+  // ============ Configuration Panel ============
   function refreshConfig() {
     if (!state.connected) {
-      showConfigError('编辑器未连接')
+      showConfigError('Editor not connected')
       return
     }
 
@@ -923,25 +923,25 @@
       getOptionsScript,
       function (options, exceptionInfo) {
         if (exceptionInfo) {
-          showConfigError('获取配置失败: ' + exceptionInfo.description)
+          showConfigError('Failed to get config: ' + exceptionInfo.description)
           return
         }
         if (options && options.error) {
-          showConfigError('获取配置错误: ' + options.error)
+          showConfigError('Error getting config: ' + options.error)
           return
         }
         if (options) {
           fillConfigForm(options)
           hideConfigError()
         } else {
-          showConfigError('无法获取配置，请检查编辑器版本')
+          showConfigError('Cannot get configuration, please check editor version')
         }
       }
     )
   }
 
   function fillConfigForm(options) {
-    // 外观
+    // Appearance
     setInputValue('cfg-defaultFont', options.defaultFont)
     setInputValue('cfg-defaultSize', options.defaultSize)
     setInputValue('cfg-defaultColor', options.defaultColor)
@@ -966,15 +966,15 @@
     setInputValue('cfg-printPixelRatio', options.printPixelRatio)
     setInputValue('cfg-rangeMinWidth', options.rangeMinWidth)
 
-    // 默认是 break-word，如果没有值则设置默认值
+    // Default is break-word, if no value set default
     const wordBreakValue = options.wordBreak || 'break-word'
     setSelectValue('cfg-wordBreak', wordBreakValue)
 
-    // 功能
+    // Features
     setCheckboxValue('cfg-contextMenuDisabled', options.contextMenuDisableKeys?.length > 0)
     setCheckboxValue('cfg-pageOuterSelectionDisabled', options.pageOuterSelectionDisabled)
 
-    // 水印
+    // Watermark
     const watermark = options.watermark || {}
     setInputValue('cfg-watermark-data', watermark.data !== undefined ? watermark.data : '')
     setInputValue('cfg-watermark-color', watermark.color !== undefined ? watermark.color : '#AEB5C0')
@@ -983,7 +983,7 @@
     setInputValue('cfg-watermark-font', watermark.font !== undefined ? watermark.font : 'Microsoft YaHei')
     setCheckboxValue('cfg-watermark-repeat', watermark.repeat !== undefined ? watermark.repeat : false)
 
-    // 页码
+    // Page Number
     const pageNumber = options.pageNumber || {}
     setInputValue('cfg-pageNumber-format', pageNumber.format !== undefined ? pageNumber.format : '{pageNo}')
     setInputValue('cfg-pageNumber-bottom', pageNumber.bottom !== undefined ? pageNumber.bottom : 60)
@@ -992,7 +992,7 @@
     setSelectValue('cfg-pageNumber-rowFlex', pageNumber.rowFlex !== undefined ? pageNumber.rowFlex : 'center')
     setCheckboxValue('cfg-pageNumber-disabled', pageNumber.disabled !== undefined ? pageNumber.disabled : false)
 
-    // 占位符
+    // Placeholder
     const placeholder = options.placeholder || {}
     setInputValue('cfg-placeholder-data', placeholder.data !== undefined ? placeholder.data : '')
     setInputValue('cfg-placeholder-color', placeholder.color !== undefined ? placeholder.color : '#DCDFE6')
@@ -1000,7 +1000,7 @@
     setInputValue('cfg-placeholder-size', placeholder.size !== undefined ? placeholder.size : 16)
     setInputValue('cfg-placeholder-font', placeholder.font !== undefined ? placeholder.font : 'Microsoft YaHei')
 
-    // 搜索高亮
+    // Search & Highlight
     setInputValue('cfg-searchMatchColor', options.searchMatchColor)
     setInputValue('cfg-searchNavigateMatchColor', options.searchNavigateMatchColor)
     setInputValue('cfg-searchMatchAlpha', options.searchMatchAlpha)
@@ -1008,18 +1008,18 @@
     setInputValue('cfg-rangeAlpha', options.rangeAlpha)
     setInputValue('cfg-highlightAlpha', options.highlightAlpha)
 
-    // 表格 - 默认填充
+    // Table - default fill
     const table = options.table || {}
     setInputValue('cfg-table-borderColor', table.defaultBorderColor !== undefined ? table.defaultBorderColor : '#000000')
     setInputValue('cfg-table-cellMinWidth', table.defaultColMinWidth !== undefined ? table.defaultColMinWidth : 40)
     setInputValue('cfg-table-cellMinHeight', table.defaultTrMinHeight !== undefined ? table.defaultTrMinHeight : 42)
     setCheckboxValue('cfg-table-overflow', table.overflow !== undefined ? table.overflow : true)
 
-    // 区域 - 默认是 true（禁用提示）
+    // Zone - default is true (disable hint)
     const zone = options.zone || {}
     setCheckboxValue('cfg-zone-tipDisabled', zone.tipDisabled !== undefined ? zone.tipDisabled : true)
 
-    // 复选框
+    // Checkbox
     const checkbox = options.checkbox || {}
     setInputValue('cfg-checkbox-width', checkbox.width !== undefined ? checkbox.width : 14)
     setInputValue('cfg-checkbox-height', checkbox.height !== undefined ? checkbox.height : 14)
@@ -1032,7 +1032,7 @@
     setInputValue('cfg-checkbox-checkMarkColor', checkbox.checkMarkColor !== undefined ? checkbox.checkMarkColor : '#ffffff')
     setSelectValue('cfg-checkbox-verticalAlign', checkbox.verticalAlign !== undefined ? checkbox.verticalAlign : 'bottom')
 
-    // 单选框
+    // Radio
     const radio = options.radio || {}
     setInputValue('cfg-radio-width', radio.width !== undefined ? radio.width : 14)
     setInputValue('cfg-radio-height', radio.height !== undefined ? radio.height : 14)
@@ -1042,7 +1042,7 @@
     setInputValue('cfg-radio-strokeStyle', radio.strokeStyle !== undefined ? radio.strokeStyle : '#000000')
     setSelectValue('cfg-radio-verticalAlign', radio.verticalAlign !== undefined ? radio.verticalAlign : 'bottom')
 
-    // 分组
+    // Group
     const group = options.group || {}
     setInputValue('cfg-group-backgroundColor', group.backgroundColor !== undefined ? group.backgroundColor : '#E99D00')
     setInputValue('cfg-group-opacity', group.opacity !== undefined ? group.opacity : 0.1)
@@ -1051,28 +1051,28 @@
     setCheckboxValue('cfg-group-disabled', group.disabled !== undefined ? group.disabled : false)
     setCheckboxValue('cfg-group-deletable', group.deletable !== undefined ? group.deletable : true)
 
-    // 分页符
+    // Page Break
     const pageBreak = options.pageBreak || {}
     setInputValue('cfg-pageBreak-font', pageBreak.font !== undefined ? pageBreak.font : 'Microsoft YaHei')
     setInputValue('cfg-pageBreak-fontSize', pageBreak.fontSize !== undefined ? pageBreak.fontSize : 12)
 
-    // 背景
+    // Background
     const background = options.background || {}
     setInputValue('cfg-background-color', background.color !== undefined ? background.color : '#FFFFFF')
 
-    // 换行符 - 默认 disabled: true
+    // Line Break - default disabled: true
     const lineBreak = options.lineBreak || {}
     setCheckboxValue('cfg-lineBreak-disabled', lineBreak.disabled !== undefined ? lineBreak.disabled : true)
     setInputValue('cfg-lineBreak-color', lineBreak.color !== undefined ? lineBreak.color : '#CCCCCC')
     setInputValue('cfg-lineBreak-lineWidth', lineBreak.lineWidth !== undefined ? lineBreak.lineWidth : 1.5)
 
-    // 空白符 - 默认 disabled: true
+    // Whitespace - default disabled: true
     const whiteSpace = options.whiteSpace || {}
     setCheckboxValue('cfg-whiteSpace-disabled', whiteSpace.disabled !== undefined ? whiteSpace.disabled : true)
     setInputValue('cfg-whiteSpace-color', whiteSpace.color !== undefined ? whiteSpace.color : '#CCCCCC')
     setInputValue('cfg-whiteSpace-radius', whiteSpace.radius !== undefined ? whiteSpace.radius : 1)
 
-    // 行号 - 默认 disabled: true
+    // Line Number - default disabled: true
     const lineNumber = options.lineNumber || {}
     setCheckboxValue('cfg-lineNumber-disabled', lineNumber.disabled !== undefined ? lineNumber.disabled : true)
     setInputValue('cfg-lineNumber-size', lineNumber.size !== undefined ? lineNumber.size : 12)
@@ -1081,40 +1081,40 @@
     setInputValue('cfg-lineNumber-right', lineNumber.right !== undefined ? lineNumber.right : 20)
     setSelectValue('cfg-lineNumber-type', lineNumber.type !== undefined ? lineNumber.type : 'continuity')
 
-    // 页面边框 - 默认 disabled: true
+    // Page Border - default disabled: true
     const pageBorder = options.pageBorder || {}
     setCheckboxValue('cfg-pageBorder-disabled', pageBorder.disabled !== undefined ? pageBorder.disabled : true)
     setInputValue('cfg-pageBorder-color', pageBorder.color !== undefined ? pageBorder.color : '#000000')
     setInputValue('cfg-pageBorder-lineWidth', pageBorder.lineWidth !== undefined ? pageBorder.lineWidth : 1)
 
-    // 角标
+    // Superscript
     const badge = options.badge || {}
     setInputValue('cfg-badge-top', badge.top !== undefined ? badge.top : 0)
     setInputValue('cfg-badge-left', badge.left !== undefined ? badge.left : 5)
 
-    // 涂鸦
+    // Graffiti
     const graffiti = options.graffiti || {}
     setInputValue('cfg-graffiti-defaultLineColor', graffiti.defaultLineColor !== undefined ? graffiti.defaultLineColor : '#000000')
     setInputValue('cfg-graffiti-defaultLineWidth', graffiti.defaultLineWidth !== undefined ? graffiti.defaultLineWidth : 2)
 
-    // 标签
+    // Label
     const label = options.label || {}
     setInputValue('cfg-label-defaultColor', label.defaultColor !== undefined ? label.defaultColor : '#1976d2')
     setInputValue('cfg-label-defaultBackgroundColor', label.defaultBackgroundColor !== undefined ? label.defaultBackgroundColor : '#e3f2fd')
     setInputValue('cfg-label-defaultBorderRadius', label.defaultBorderRadius !== undefined ? label.defaultBorderRadius : 4)
 
-    // 图片题注
+    // Image Caption
     const imgCaption = options.imgCaption || {}
     setInputValue('cfg-imgCaption-color', imgCaption.color !== undefined ? imgCaption.color : '#666666')
     setInputValue('cfg-imgCaption-font', imgCaption.font !== undefined ? imgCaption.font : 'Microsoft YaHei')
     setInputValue('cfg-imgCaption-size', imgCaption.size !== undefined ? imgCaption.size : 12)
     setInputValue('cfg-imgCaption-top', imgCaption.top !== undefined ? imgCaption.top : 5)
 
-    // 列表 - 默认 inheritStyle: false
+    // List - default inheritStyle: false
     const list = options.list || {}
     setCheckboxValue('cfg-list-inheritStyle', list.inheritStyle !== undefined ? list.inheritStyle : false)
 
-    // 控件 - 填充实际值（包括空字符串）
+    // Control - fill actual values (including empty string)
     const control = options.control || {}
     setInputValue('cfg-control-prefix', control.prefix !== undefined ? control.prefix : '{')
     setInputValue('cfg-control-postfix', control.postfix !== undefined ? control.postfix : '}')
@@ -1122,13 +1122,13 @@
     setInputValue('cfg-control-borderWidth', control.borderWidth !== undefined ? control.borderWidth : 1)
     setInputValue('cfg-control-placeholderColor', control.placeholderColor !== undefined ? control.placeholderColor : '#9c9b9b')
     setInputValue('cfg-control-bracketColor', control.bracketColor !== undefined ? control.bracketColor : '#000000')
-    // 以下属性默认空字符串
+    // Following properties default to empty string
     setInputValue('cfg-control-activeBackgroundColor', control.activeBackgroundColor !== undefined ? control.activeBackgroundColor : '')
     setInputValue('cfg-control-disabledBackgroundColor', control.disabledBackgroundColor !== undefined ? control.disabledBackgroundColor : '')
     setInputValue('cfg-control-existValueBackgroundColor', control.existValueBackgroundColor !== undefined ? control.existValueBackgroundColor : '')
     setInputValue('cfg-control-noValueBackgroundColor', control.noValueBackgroundColor !== undefined ? control.noValueBackgroundColor : '')
 
-    // 光标
+    // Cursor
     const cursor = options.cursor || {}
     setInputValue('cfg-cursor-color', cursor.color !== undefined ? cursor.color : '#000000')
     setInputValue('cfg-cursor-width', cursor.width !== undefined ? cursor.width : 1)
@@ -1136,7 +1136,7 @@
     setInputValue('cfg-cursor-dragColor', cursor.dragColor !== undefined ? cursor.dragColor : '#0000FF')
     setCheckboxValue('cfg-cursor-dragFloatImageDisabled', cursor.dragFloatImageDisabled !== undefined ? cursor.dragFloatImageDisabled : false)
 
-    // 标题
+    // Title
     const title = options.title || {}
     setInputValue('cfg-title-level1', title.defaultFirstSize !== undefined ? title.defaultFirstSize : 26)
     setInputValue('cfg-title-level2', title.defaultSecondSize !== undefined ? title.defaultSecondSize : 24)
@@ -1145,7 +1145,7 @@
     setInputValue('cfg-title-level5', title.defaultFifthSize !== undefined ? title.defaultFifthSize : 18)
     setInputValue('cfg-title-level6', title.defaultSixthSize !== undefined ? title.defaultSixthSize : 16)
 
-    // 页眉页脚
+    // Header & Footer
     const header = options.header || {}
     setInputValue('cfg-header-maxHeight', header.maxHeight !== undefined ? header.maxHeight : 60)
     setCheckboxValue('cfg-header-disabled', header.disabled !== undefined ? header.disabled : false)
@@ -1153,7 +1153,7 @@
     setInputValue('cfg-footer-maxHeight', footer.maxHeight !== undefined ? footer.maxHeight : 60)
     setCheckboxValue('cfg-footer-disabled', footer.disabled !== undefined ? footer.disabled : false)
 
-    // 线条
+    // Lines
     setInputValue('cfg-underlineColor', options.underlineColor)
     setInputValue('cfg-strikeoutColor', options.strikeoutColor)
     if (options.separator) {
@@ -1163,7 +1163,7 @@
       setInputValue('cfg-pageBreak-color', options.pageBreak.color)
     }
 
-    // 其他
+    // Other
     setInputValue('cfg-resizerColor', options.resizerColor)
     setInputValue('cfg-resizerSize', options.resizerSize)
     setInputValue('cfg-defaultHyperlinkColor', options.defaultHyperlinkColor)
@@ -1182,10 +1182,10 @@
   function setInputValue(id, value) {
     const el = document.getElementById(id)
     if (!el) return
-    // 如果值为 undefined/null/空字符串，设置空值
+    // If value is undefined/null/empty string, set empty value
     if (value === undefined || value === null || value === '') {
       el.value = ''
-      // 对于颜色输入框，添加 transparent class 来显示透明样式
+      // For color input, add transparent class to show transparent style
       if (el.type === 'color') {
         el.classList.add('transparent')
       }
@@ -1206,7 +1206,7 @@
 
   function saveConfig() {
     if (!state.connected) {
-      showConfigError('编辑器未连接')
+      showConfigError('Editor not connected')
       return
     }
 
@@ -1214,13 +1214,13 @@
     const updateOptionsScript = `
       (function() {
         const editor = window.__CANVAS_EDITOR_INSTANCE__;
-        if (!editor || !editor.command) return { error: '编辑器未初始化' };
+        if (!editor || !editor.command) return { error: 'Editor not initialized' };
         try {
           if (editor.command.executeUpdateOptions) {
             editor.command.executeUpdateOptions(${JSON.stringify(options)});
             return { success: true };
           } else {
-            return { error: 'executeUpdateOptions 方法不存在' };
+            return { error: 'executeUpdateOptions method does not exist' };
           }
         } catch (e) {
           return { error: e.message };
@@ -1232,16 +1232,16 @@
       updateOptionsScript,
       function (result, exceptionInfo) {
         if (exceptionInfo) {
-          showConfigError('保存配置失败: ' + exceptionInfo.description)
+          showConfigError('Failed to save config: ' + exceptionInfo.description)
           return
         }
         if (result && result.error) {
-          showConfigError('保存配置错误: ' + result.error)
+          showConfigError('Error saving config: ' + result.error)
           return
         }
         if (result && result.success) {
           hideConfigError()
-          dom.btnSaveConfig.textContent = '已保存'
+          dom.btnSaveConfig.textContent = 'Saved'
           setTimeout(() => {
             dom.btnSaveConfig.innerHTML = `
               <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -1249,7 +1249,7 @@
                 <polyline points="17 21 17 13 7 13 7 21"/>
                 <polyline points="7 3 7 8 15 8"/>
               </svg>
-              保存
+              Save
             `
           }, 1000)
         }
@@ -1260,7 +1260,7 @@
   function collectConfigFromForm() {
     const options = {}
 
-    // 外观
+    // Appearance
     const defaultFont = getInputValue('cfg-defaultFont')
     if (defaultFont) options.defaultFont = defaultFont
 
@@ -1330,7 +1330,7 @@
     const printPixelRatio = getNumberValue('cfg-printPixelRatio')
     if (printPixelRatio !== null) options.printPixelRatio = printPixelRatio
 
-    // 功能
+    // Features
     if (document.getElementById('cfg-contextMenuDisabled')?.checked) {
       options.contextMenuDisableKeys = ['*']
     }
@@ -1338,7 +1338,7 @@
       options.pageOuterSelectionDisabled = true
     }
 
-    // 水印
+    // Watermark
     const watermarkData = getInputValue('cfg-watermark-data')
     if (watermarkData) {
       options.watermark = {
@@ -1351,7 +1351,7 @@
       }
     }
 
-    // 页码
+    // Page Number
     const pageNumberFormat = getInputValue('cfg-pageNumber-format')
     const pageNumberBottom = getNumberValue('cfg-pageNumber-bottom')
     const pageNumberSize = getNumberValue('cfg-pageNumber-size')
@@ -1368,14 +1368,14 @@
       if (pageNumberDisabled !== undefined) options.pageNumber.disabled = pageNumberDisabled
     }
 
-    // 占位符
+    // Placeholder
     const placeholderData = getInputValue('cfg-placeholder-data')
     const placeholderOpacity = getNumberValue('cfg-placeholder-opacity')
     const placeholderSize = getNumberValue('cfg-placeholder-size')
     const placeholderFont = getInputValue('cfg-placeholder-font')
     if (placeholderData || placeholderOpacity !== null || placeholderSize !== null || placeholderFont) {
       options.placeholder = {
-        data: placeholderData || '请输入正文',
+        data: placeholderData || 'Please enter content',
         color: getInputValue('cfg-placeholder-color') || '#DCDFE6'
       }
       if (placeholderOpacity !== null) options.placeholder.opacity = placeholderOpacity
@@ -1383,7 +1383,7 @@
       if (placeholderFont) options.placeholder.font = placeholderFont
     }
 
-    // 搜索高亮
+    // Search & Highlight
     const searchMatchColor = getInputValue('cfg-searchMatchColor')
     if (searchMatchColor) options.searchMatchColor = searchMatchColor
 
@@ -1402,7 +1402,7 @@
     const highlightAlpha = getNumberValue('cfg-highlightAlpha')
     if (highlightAlpha !== null) options.highlightAlpha = highlightAlpha
 
-    // 表格
+    // Table
     const tableBorderColor = getInputValue('cfg-table-borderColor')
     const tableCellMinWidth = getNumberValue('cfg-table-cellMinWidth')
     const tableCellMinHeight = getNumberValue('cfg-table-cellMinHeight')
@@ -1415,7 +1415,7 @@
       if (tableOverflow !== undefined) options.table.overflow = tableOverflow
     }
 
-    // 控件
+    // Control
     const controlPrefix = getInputValue('cfg-control-prefix')
     const controlPostfix = getInputValue('cfg-control-postfix')
     const controlBorderColor = getInputValue('cfg-control-borderColor')
@@ -1442,7 +1442,7 @@
       options.control.noValueBackgroundColor = controlNoValueBackgroundColor
     }
 
-    // 光标
+    // Cursor
     const cursorColor = getInputValue('cfg-cursor-color')
     const cursorWidth = getNumberValue('cfg-cursor-width')
     const cursorDragWidth = getNumberValue('cfg-cursor-dragWidth')
@@ -1457,7 +1457,7 @@
       if (cursorDragFloatImageDisabled !== undefined) options.cursor.dragFloatImageDisabled = cursorDragFloatImageDisabled
     }
 
-    // 标题
+    // Title
     const titleLevel1 = getNumberValue('cfg-title-level1')
     const titleLevel2 = getNumberValue('cfg-title-level2')
     const titleLevel3 = getNumberValue('cfg-title-level3')
@@ -1475,7 +1475,7 @@
       if (titleLevel6 !== null) options.title.defaultSixthSize = titleLevel6
     }
 
-    // 页眉
+    // Header
     const headerMaxHeight = getNumberValue('cfg-header-maxHeight')
     const headerDisabled = document.getElementById('cfg-header-disabled')?.checked
     if (headerMaxHeight !== null || headerDisabled !== undefined) {
@@ -1484,7 +1484,7 @@
       if (headerDisabled !== undefined) options.header.disabled = headerDisabled
     }
 
-    // 页脚
+    // Footer
     const footerMaxHeight = getNumberValue('cfg-footer-maxHeight')
     const footerDisabled = document.getElementById('cfg-footer-disabled')?.checked
     if (footerMaxHeight !== null || footerDisabled !== undefined) {
@@ -1493,13 +1493,13 @@
       if (footerDisabled !== undefined) options.footer.disabled = footerDisabled
     }
 
-    // 区域
+    // Zone
     const zoneTipDisabled = document.getElementById('cfg-zone-tipDisabled')?.checked
     if (zoneTipDisabled !== undefined) {
       options.zone = { tipDisabled: zoneTipDisabled }
     }
 
-    // 复选框
+    // Checkbox
     const checkboxWidth = getNumberValue('cfg-checkbox-width')
     const checkboxHeight = getNumberValue('cfg-checkbox-height')
     const checkboxGap = getNumberValue('cfg-checkbox-gap')
@@ -1525,7 +1525,7 @@
       if (checkboxVerticalAlign) options.checkbox.verticalAlign = checkboxVerticalAlign
     }
 
-    // 单选框
+    // Radio
     const radioWidth = getNumberValue('cfg-radio-width')
     const radioHeight = getNumberValue('cfg-radio-height')
     const radioGap = getNumberValue('cfg-radio-gap')
@@ -1545,7 +1545,7 @@
       if (radioVerticalAlign) options.radio.verticalAlign = radioVerticalAlign
     }
 
-    // 分组
+    // Group
     const groupBackgroundColor = getInputValue('cfg-group-backgroundColor')
     const groupOpacity = getNumberValue('cfg-group-opacity')
     const groupActiveBackgroundColor = getInputValue('cfg-group-activeBackgroundColor')
@@ -1563,7 +1563,7 @@
       if (groupDeletable !== undefined) options.group.deletable = groupDeletable
     }
 
-    // 分页符
+    // Page Break
     const pageBreakFont = getInputValue('cfg-pageBreak-font')
     const pageBreakFontSize = getNumberValue('cfg-pageBreak-fontSize')
     if (pageBreakFont || pageBreakFontSize !== null) {
@@ -1572,13 +1572,13 @@
       if (pageBreakFontSize !== null) options.pageBreak.fontSize = pageBreakFontSize
     }
 
-    // 背景
+    // Background
     const backgroundColor = getInputValue('cfg-background-color')
     if (backgroundColor) {
       options.background = { color: backgroundColor }
     }
 
-    // 换行符
+    // Line Break
     const lineBreakDisabled = document.getElementById('cfg-lineBreak-disabled')?.checked
     const lineBreakColor = getInputValue('cfg-lineBreak-color')
     const lineBreakLineWidth = getNumberValue('cfg-lineBreak-lineWidth')
@@ -1589,7 +1589,7 @@
       if (lineBreakLineWidth !== null) options.lineBreak.lineWidth = lineBreakLineWidth
     }
 
-    // 空白符
+    // Whitespace
     const whiteSpaceDisabled = document.getElementById('cfg-whiteSpace-disabled')?.checked
     const whiteSpaceColor = getInputValue('cfg-whiteSpace-color')
     const whiteSpaceRadius = getNumberValue('cfg-whiteSpace-radius')
@@ -1600,7 +1600,7 @@
       if (whiteSpaceRadius !== null) options.whiteSpace.radius = whiteSpaceRadius
     }
 
-    // 行号
+    // Line Number
     const lineNumberDisabled = document.getElementById('cfg-lineNumber-disabled')?.checked
     const lineNumberSize = getNumberValue('cfg-lineNumber-size')
     const lineNumberFont = getInputValue('cfg-lineNumber-font')
@@ -1617,7 +1617,7 @@
       if (lineNumberType) options.lineNumber.type = lineNumberType
     }
 
-    // 页面边框
+    // Page Border
     const pageBorderDisabled = document.getElementById('cfg-pageBorder-disabled')?.checked
     const pageBorderColor = getInputValue('cfg-pageBorder-color')
     const pageBorderLineWidth = getNumberValue('cfg-pageBorder-lineWidth')
@@ -1628,7 +1628,7 @@
       if (pageBorderLineWidth !== null) options.pageBorder.lineWidth = pageBorderLineWidth
     }
 
-    // 角标
+    // Superscript
     const badgeTop = getNumberValue('cfg-badge-top')
     const badgeLeft = getNumberValue('cfg-badge-left')
     if (badgeTop !== null || badgeLeft !== null) {
@@ -1637,7 +1637,7 @@
       if (badgeLeft !== null) options.badge.left = badgeLeft
     }
 
-    // 涂鸦
+    // Graffiti
     const graffitiDefaultLineColor = getInputValue('cfg-graffiti-defaultLineColor')
     const graffitiDefaultLineWidth = getNumberValue('cfg-graffiti-defaultLineWidth')
     if (graffitiDefaultLineColor || graffitiDefaultLineWidth !== null) {
@@ -1646,7 +1646,7 @@
       if (graffitiDefaultLineWidth !== null) options.graffiti.defaultLineWidth = graffitiDefaultLineWidth
     }
 
-    // 标签
+    // Label
     const labelDefaultColor = getInputValue('cfg-label-defaultColor')
     const labelDefaultBackgroundColor = getInputValue('cfg-label-defaultBackgroundColor')
     const labelDefaultBorderRadius = getNumberValue('cfg-label-defaultBorderRadius')
@@ -1657,7 +1657,7 @@
       if (labelDefaultBorderRadius !== null) options.label.defaultBorderRadius = labelDefaultBorderRadius
     }
 
-    // 图片题注
+    // Image Caption
     const imgCaptionColor = getInputValue('cfg-imgCaption-color')
     const imgCaptionFont = getInputValue('cfg-imgCaption-font')
     const imgCaptionSize = getNumberValue('cfg-imgCaption-size')
@@ -1670,7 +1670,7 @@
       if (imgCaptionTop !== null) options.imgCaption.top = imgCaptionTop
     }
 
-    // 列表
+    // List
     const listInheritStyle = document.getElementById('cfg-list-inheritStyle')?.checked
     if (listInheritStyle !== undefined) {
       options.list = { inheritStyle: listInheritStyle }
@@ -1682,7 +1682,7 @@
   function getInputValue(id) {
     const el = document.getElementById(id)
     if (!el) return ''
-    // 对于颜色输入框，如果有 transparent class，返回空字符串
+    // For color input, if has transparent class, return empty string
     if (el.type === 'color' && el.classList.contains('transparent')) {
       return ''
     }
@@ -1720,40 +1720,40 @@
     }
   }
 
-  // ============ 事件监控面板 ============
-  // 事件配置映射
+  // ============ Event Monitor Panel ============
+  // Event configuration mapping
   const eventConfig = {
-    // 内容变化
+    // Content change
     contentChange: { monitor: 'monitorContent', category: 'content' },
-    // 选区样式变化
+    // Selection style change
     rangeStyleChange: { monitor: 'monitorRange', category: 'range' },
-    // 页面相关
+    // Page related
     visiblePageNoListChange: { monitor: 'monitorPage', category: 'page' },
     intersectionPageNoChange: { monitor: 'monitorPage', category: 'page' },
     pageSizeChange: { monitor: 'monitorPage', category: 'page' },
     pageScaleChange: { monitor: 'monitorPage', category: 'page' },
     pageModeChange: { monitor: 'monitorPage', category: 'page' },
-    // 控件相关
+    // Control related
     controlChange: { monitor: 'monitorControl', category: 'control' },
     controlContentChange: { monitor: 'monitorControl', category: 'control' },
-    // 鼠标事件
+    // Mouse events
     mousemove: { monitor: 'monitorMouse', category: 'mouse' },
     mouseenter: { monitor: 'monitorMouse', category: 'mouse' },
     mouseleave: { monitor: 'monitorMouse', category: 'mouse' },
     mousedown: { monitor: 'monitorMouse', category: 'mouse' },
     mouseup: { monitor: 'monitorMouse', category: 'mouse' },
     click: { monitor: 'monitorMouse', category: 'mouse' },
-    // 输入事件
+    // Input events
     input: { monitor: 'monitorInput', category: 'input' },
-    // 其他事件
+    // Other events
     saved: { monitor: 'monitorOther', category: 'other' },
     zoneChange: { monitor: 'monitorOther', category: 'other' },
     positionContextChange: { monitor: 'monitorOther', category: 'other' },
-    // 图片事件
+    // Image events
     imageSizeChange: { monitor: 'monitorImage', category: 'image' },
     imageMousedown: { monitor: 'monitorImage', category: 'image' },
     imageDblclick: { monitor: 'monitorImage', category: 'image' },
-    // 标签事件
+    // Label events
     labelMousedown: { monitor: 'monitorOther', category: 'other' }
   }
 
@@ -1766,7 +1766,7 @@
       return
     }
 
-    // 检查对应的监控开关是否开启
+    // Check if corresponding monitor switch is on
     const monitorEl = dom[config.monitor]
     if (!monitorEl || !monitorEl.checked) {
       return
@@ -1804,13 +1804,13 @@
       )
       .join('')
 
-    dom.eventCount.textContent = `事件数: ${state.eventLog.length}`
+    dom.eventCount.textContent = `Events: ${state.eventLog.length}`
 
-    // 自动滚动到底部
+    // Auto-scroll to bottom
     dom.eventLog.scrollTop = dom.eventLog.scrollHeight
   }
 
-  // ============ 工具函数 ============
+  // ============ Utility Functions ============
   function switchTab(tabName) {
     state.currentTab = tabName
 
@@ -1824,7 +1824,7 @@
 
     refreshData()
 
-    // 切换到配置 tab 时自动刷新配置
+    // Auto-refresh config when switching to config tab
     if (tabName === 'config') {
       refreshConfig()
     }
@@ -1845,11 +1845,11 @@
       .replace(/"/g, '&quot;')
   }
 
-  // 暴露给 devtools.js 的方法
+  // Expose to devtools.js
   window.startUpdating = function () {
-    // 不再定时刷新，改为通过 contentChange 事件触发刷新
+    // No longer auto-refresh on timer, use contentChange event to trigger refresh
   }
 
-  // 启动
+  // Start
   init()
 })()

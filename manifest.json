@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Canvas-Editor",
   "version": "1.0.0",
-  "description": "Canvas Editor 综合调试工具 - 元素检查、命令追踪、性能分析、布局可视化",
+  "description": "Canvas Editor Debugging Tool - Element Inspection, Command Tracking, Performance Analysis, Layout Visualization",
   "permissions": ["scripting", "activeTab"],
   "host_permissions": ["<all_urls>"],
   "devtools_page": "devtools.html",
