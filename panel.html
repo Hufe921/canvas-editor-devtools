@@ -38,6 +38,13 @@
           </svg>
           Configuration
         </button>
+        <button class="tab-btn" data-tab="script">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="4 17 10 11 4 5"/>
+            <line x1="12" y1="19" x2="20" y2="19"/>
+          </svg>
+          Script
+        </button>
       </div>
 
       <!-- Content Area -->
@@ -904,6 +911,66 @@
                 </div>
               </div>
               <div id="config-error" class="config-error"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Script Panel -->
+        <div id="tab-script" class="tab-content">
+          <div class="script-panel">
+            <div class="script-header">
+              <div class="script-title">
+                <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="4 17 10 11 4 5"/>
+                  <line x1="12" y1="19" x2="20" y2="19"/>
+                </svg>
+                Execute Script
+              </div>
+              <div class="script-actions">
+                <button id="btn-clear-script" class="btn secondary">
+                  <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="3 6 5 6 21 6"/>
+                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                  </svg>
+                  Clear
+                </button>
+                <button id="btn-execute-script" class="btn primary">
+                  <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <polygon points="5 3 19 12 5 21 5 3"/>
+                  </svg>
+                  Run
+                </button>
+              </div>
+            </div>
+            <div class="script-container">
+              <div class="script-main">
+                <div class="script-input-section">
+                  <div class="script-label">Script Input</div>
+                  <textarea id="script-input" class="script-textarea" placeholder="// Enter your JavaScript code here
+// Example: editor.command.executeInsertElementList([{ value:'hello world' }]);"
+>const editor = window.__CANVAS_EDITOR_INSTANCE__
+
+</textarea>
+                </div>
+                <div class="script-output-section">
+                  <div class="script-label">
+                    Output
+                    <span id="script-status" class="script-status"></span>
+                  </div>
+                  <pre id="script-output" class="script-output"></pre>
+                </div>
+              </div>
+
+              <!-- History Panel (Right Side) -->
+              <div id="history-panel" class="history-panel">
+                <div class="history-header">
+                  <span class="history-title">History</span>
+                  <button id="btn-clear-history" class="btn tiny" title="Clear History">Clear</button>
+                </div>
+                <div id="history-list" class="history-list">
+                  <!-- History items will be inserted here -->
+                </div>
+              </div>
             </div>
           </div>
         </div>

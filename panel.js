@@ -10,7 +10,8 @@
     editorData: null,
     eventLog: [],
     currentTab: 'elements',
-    selectedZone: 'main'
+    selectedZone: 'main',
+    scriptHistory: []
   }
 
   // ============ DOM Element Cache ============
@@ -47,6 +48,7 @@
     bindEvents()
     connectToBackground()
     startConnectionCheck()
+    loadScriptHistory()
   }
 
   // Connect to background script to receive event messages
@@ -118,6 +120,15 @@
     dom.configError = document.getElementById('config-error')
     dom.btnRefreshConfig = document.getElementById('btn-refresh-config')
     dom.btnSaveConfig = document.getElementById('btn-save-config')
+
+    // Script Panel
+    dom.scriptInput = document.getElementById('script-input')
+    dom.scriptOutput = document.getElementById('script-output')
+    dom.scriptStatus = document.getElementById('script-status')
+    dom.btnExecuteScript = document.getElementById('btn-execute-script')
+    dom.btnClearScript = document.getElementById('btn-clear-script')
+    dom.historyList = document.getElementById('history-list')
+    dom.btnClearHistory = document.getElementById('btn-clear-history')
   }
 
   function bindEvents() {
@@ -141,6 +152,19 @@
     // Config Panel
     dom.btnRefreshConfig?.addEventListener('click', () => refreshConfig())
     dom.btnSaveConfig?.addEventListener('click', () => saveConfig())
+
+    // Script Panel
+    dom.btnExecuteScript?.addEventListener('click', () => executeScript())
+    dom.btnClearScript?.addEventListener('click', () => clearScript())
+    dom.btnClearHistory?.addEventListener('click', () => clearScriptHistory())
+
+    // History item click
+    dom.historyList?.addEventListener('click', (e) => {
+      const historyItem = e.target.closest('.history-item')
+      if (historyItem && historyItem.dataset.script) {
+        dom.scriptInput.value = historyItem.dataset.script
+      }
+    })
 
     // Color input event - remove transparent class when selecting color
     document.querySelectorAll('input[type="color"]').forEach(input => {
@@ -1828,6 +1852,242 @@
     if (tabName === 'config') {
       refreshConfig()
     }
+  }
+
+  // ============ Script Panel ============
+  function executeScript() {
+    if (!state.connected) {
+      updateScriptStatus('Not connected to editor', 'error')
+      return
+    }
+
+    const script = dom.scriptInput.value.trim()
+    if (!script) {
+      updateScriptStatus('Please enter a script', 'error')
+      return
+    }
+
+    updateScriptStatus('Running...', 'running')
+
+    // Wrap user script to capture return value and handle errors
+    const wrappedScript = `
+      (function() {
+        try {
+          const editor = window.__CANVAS_EDITOR_INSTANCE__;
+          if (!editor) {
+            return { __error: 'Editor instance not found' };
+          }
+          const result = (function() {
+            ${script}
+          })();
+          return { __success: true, result: result };
+        } catch (err) {
+          return { __error: err.message || String(err) };
+        }
+      })()
+    `
+
+    chrome.devtools.inspectedWindow.eval(
+      wrappedScript,
+      function (result, exceptionInfo) {
+        if (exceptionInfo) {
+          updateScriptStatus('Execution failed', 'error')
+          dom.scriptOutput.textContent = formatScriptError(exceptionInfo)
+          return
+        }
+
+        if (result && result.__error) {
+          updateScriptStatus('Execution failed', 'error')
+          dom.scriptOutput.textContent = 'Error: ' + result.__error
+        } else if (result && result.__success) {
+          updateScriptStatus('Success', 'success')
+          dom.scriptOutput.textContent = formatScriptResult(result.result)
+          addScriptToHistory(script)
+        } else {
+          updateScriptStatus('Success', 'success')
+          dom.scriptOutput.textContent = formatScriptResult(result)
+          addScriptToHistory(script)
+        }
+      }
+    )
+  }
+
+  function clearScript() {
+    dom.scriptInput.value = ''
+    dom.scriptOutput.textContent = ''
+    updateScriptStatus('', '')
+  }
+
+  function updateScriptStatus(message, type) {
+    dom.scriptStatus.textContent = message
+    dom.scriptStatus.className = 'script-status ' + type
+  }
+
+  function formatScriptResult(result) {
+    if (result === undefined) {
+      return 'undefined'
+    }
+    if (result === null) {
+      return 'null'
+    }
+    if (typeof result === 'string') {
+      return result
+    }
+    try {
+      return JSON.stringify(result, null, 2)
+    } catch (e) {
+      return String(result)
+    }
+  }
+
+  function formatScriptError(exceptionInfo) {
+    if (exceptionInfo.isException) {
+      return 'Exception: ' + (exceptionInfo.value || exceptionInfo.description || 'Unknown error')
+    }
+    if (exceptionInfo.isError) {
+      return 'Error: ' + (exceptionInfo.description || 'Unknown error')
+    }
+    return 'Error: ' + JSON.stringify(exceptionInfo, null, 2)
+  }
+
+  // ============ Script History ============
+  const SCRIPT_HISTORY_KEY = 'canvas-editor-script-history'
+  const MAX_HISTORY_ITEMS = 20
+
+  function loadScriptHistory() {
+    try {
+      const stored = localStorage.getItem(SCRIPT_HISTORY_KEY)
+      if (stored) {
+        state.scriptHistory = JSON.parse(stored)
+        updateHistoryList()
+      }
+    } catch (e) {
+      console.error('Failed to load script history:', e)
+      state.scriptHistory = []
+    }
+  }
+
+  function saveScriptHistory() {
+    try {
+      localStorage.setItem(SCRIPT_HISTORY_KEY, JSON.stringify(state.scriptHistory))
+      updateHistoryList()
+    } catch (e) {
+      console.error('Failed to save script history:', e)
+    }
+  }
+
+  function addScriptToHistory(script) {
+    const trimmed = script.trim()
+    if (!trimmed || trimmed === 'const editor = window.__CANVAS_EDITOR_INSTANCE__') {
+      return
+    }
+    // Remove if already exists (to move to top)
+    const index = state.scriptHistory.indexOf(trimmed)
+    if (index > -1) {
+      state.scriptHistory.splice(index, 1)
+    }
+    // Add to beginning
+    state.scriptHistory.unshift(trimmed)
+    // Keep only max items
+    if (state.scriptHistory.length > MAX_HISTORY_ITEMS) {
+      state.scriptHistory = state.scriptHistory.slice(0, MAX_HISTORY_ITEMS)
+    }
+    saveScriptHistory()
+  }
+
+  function updateHistoryList() {
+    if (!dom.historyList) return
+
+    dom.historyList.innerHTML = ''
+
+    if (state.scriptHistory.length === 0) {
+      dom.historyList.innerHTML = '<div class="history-empty">No history yet</div>'
+      return
+    }
+
+    state.scriptHistory.forEach((script) => {
+      const item = document.createElement('div')
+      item.className = 'history-item'
+      item.dataset.script = script
+
+      // Check if content needs expand button
+      const needsExpand = script.length > 150 || script.split('\n').length > 3
+
+      // Preview content (first 3 lines, max 150 chars)
+      const lines = script.split('\n')
+      const preview = lines.slice(0, 3).join('\n')
+      const previewText = preview.length > 150 ? preview.slice(0, 150) + '...' : preview
+
+      // Content container
+      const contentDiv = document.createElement('div')
+      contentDiv.className = 'history-content'
+      contentDiv.textContent = previewText
+      item.appendChild(contentDiv)
+
+      // Expand button if needed
+      if (needsExpand) {
+        const expandBtn = document.createElement('button')
+        expandBtn.className = 'history-expand-btn'
+        expandBtn.title = 'Expand'
+        expandBtn.dataset.expanded = 'false'
+        expandBtn.dataset.fullScript = script
+        expandBtn.dataset.preview = previewText
+
+        // Create SVG icon
+        const createChevronIcon = (direction) => {
+          const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg')
+          svg.setAttribute('class', 'icon')
+          svg.setAttribute('viewBox', '0 0 24 24')
+          svg.setAttribute('fill', 'none')
+          svg.setAttribute('stroke', 'currentColor')
+          svg.setAttribute('stroke-width', '2')
+          svg.setAttribute('stroke-linecap', 'round')
+          svg.setAttribute('stroke-linejoin', 'round')
+          const polyline = document.createElementNS('http://www.w3.org/2000/svg', 'polyline')
+          if (direction === 'down') {
+            polyline.setAttribute('points', '6 9 12 15 18 9')
+          } else {
+            polyline.setAttribute('points', '18 15 12 9 6 15')
+          }
+          svg.appendChild(polyline)
+          return svg
+        }
+
+        expandBtn.appendChild(createChevronIcon('down'))
+
+        expandBtn.addEventListener('click', (e) => {
+          e.stopPropagation()
+          const isExpanded = expandBtn.dataset.expanded === 'true'
+          if (isExpanded) {
+            // Collapse
+            contentDiv.textContent = expandBtn.dataset.preview
+            expandBtn.innerHTML = ''
+            expandBtn.appendChild(createChevronIcon('down'))
+            expandBtn.title = 'Expand'
+            expandBtn.dataset.expanded = 'false'
+            item.classList.remove('expanded')
+          } else {
+            // Expand
+            contentDiv.textContent = expandBtn.dataset.fullScript
+            expandBtn.innerHTML = ''
+            expandBtn.appendChild(createChevronIcon('up'))
+            expandBtn.title = 'Collapse'
+            expandBtn.dataset.expanded = 'true'
+            item.classList.add('expanded')
+          }
+        })
+
+        item.appendChild(expandBtn)
+      }
+
+      dom.historyList.appendChild(item)
+    })
+  }
+
+  function clearScriptHistory() {
+    state.scriptHistory = []
+    localStorage.removeItem(SCRIPT_HISTORY_KEY)
+    updateHistoryList()
   }
 
   function truncate(str, maxLength) {
